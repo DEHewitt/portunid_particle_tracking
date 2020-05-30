@@ -16,9 +16,12 @@ from operator import attrgetter
 import cartopy
 #import netCDF4
 
-filenames = {'U': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-             'V': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-             'temp': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}#,
+filenames = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
+             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
+             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
+#{'U': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
+        #     'V': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
+            # 'temp': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}#,
              #'mesh_mask' : '/Users/hayde/Crab-Dispersal/BRAN/AUS/grid_spec.nc'} # For Hayden}
 
 
@@ -129,7 +132,8 @@ pset = ParticleSet.from_list(fieldset, pclass=SampleParticle,time = end_time, lo
 
 pset.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150}) #
 
-out_file = "/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
+#out_file = "/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
+out_file = "/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 if os.path.exists(out_file):
@@ -156,7 +160,8 @@ pfile.close()
 pset.show(domain={'N':-23, 'S':-38, 'E':157, 'W':150}, field='vector') #
 
 
-plotTrajectoriesFile("/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
+plotTrajectoriesFile("/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
+#plotTrajectoriesFile("/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
 
 fieldset.U.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150})
 fieldset.temp.show(domain={'N':-20, 'S':-35, 'E':157, 'W':150})
