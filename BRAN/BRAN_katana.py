@@ -4,30 +4,24 @@ Created on Wed May  6 15:20:21 2020
 
 @author: hayde
 """
-from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, BrownianMotion2D, random, plotTrajectoriesFile
+from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, BrownianMotion2D, random
 from parcels import ErrorCode
 import numpy as np
 from glob import glob
+#import time as timelib
 from datetime import timedelta as delta
 from datetime import datetime as datetime
-import os
+#import cartopy
 import math
+import os
 from operator import attrgetter
-import cartopy
-#import netCDF4
 
-filenames = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
-#{'U': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-        #     'V': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-            # 'temp': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}#,
-             #'mesh_mask' : '/Users/hayde/Crab-Dispersal/BRAN/AUS/grid_spec.nc'} # For Hayden}
+out_dir = '/srv/scratch/z3374139/BRAN_AUS/'
 
+filenames = {'U': sorted(glob('/srv/scratch/z3374139/BRAN_AUS/Ocean_u_*')), 
+             'V': sorted(glob('/srv/scratch/z3374139/BRAN_AUS/Ocean_v_*')),
+             'temp': sorted(glob('/srv/scratch/z3374139/BRAN_AUS/Ocean_temp_*'))}
 
-
-#filenames = {'U': '/Users/hayde/Crab-Dispersal/BRAN/ocean_u_1994_01X.nc',
-#             'V': '/Users/hayde/Crab-Dispersal/BRAN/ocean_v_1994_01X.nc'}
 
 npart = 3  # number of particles to be released
 repeatdt = delta(days=1)  # release from the same set of locations every X day
@@ -50,13 +44,14 @@ lat_array = [-35.1, -33.8, -32, -36.2]#, -29.4, -28.1, -38, -37, -35.7, -31.4, -
 lon = np.repeat(lon_array,npart)
 lat = np.repeat(lat_array,npart)
 
+# Set the year here
 #array_ref = int(os.environ['PBS_ARRAYID'])
-array_ref = 0
+array_ref = 3
 
 year_array = np.arange(1994, 2016, 1)
 
 start_time = datetime(year_array[array_ref],2, 15)
-end_time = datetime(year_array[array_ref],3, 20)  #year, month, day,
+end_time = datetime(year_array[array_ref],4, 20)  #year, month, day,
 
 runtime = end_time-start_time + delta(days=1)
 
@@ -130,10 +125,8 @@ start_time = np.repeat(start_time,len(lon))
 
 pset = ParticleSet.from_list(fieldset, pclass=SampleParticle,time = end_time, lon=lon, lat=lat, repeatdt=repeatdt) #, time=start_time
 
-pset.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150}) #
 
-#out_file = "/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
-out_file = "/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
+out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Back.nc'
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 if os.path.exists(out_file):
@@ -143,7 +136,6 @@ if os.path.exists(out_file):
 
 kernels = pset.Kernel(AdvectionRK4) +  SampleAge+ SampleTemp +  SampleDistance + BrownianMotion2D #SampleBathy  +
 
-pset.show()
 
 pset.execute(kernels, 
              dt=-delta(minutes=30), 
@@ -153,19 +145,3 @@ pset.execute(kernels,
              runtime = runtime,
              recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
 pfile.close()
-
-
-
-
-pset.show(domain={'N':-23, 'S':-38, 'E':157, 'W':150}, field='vector') #
-
-
-plotTrajectoriesFile("/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
-#plotTrajectoriesFile("/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
-
-fieldset.U.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150})
-fieldset.temp.show(domain={'N':-20, 'S':-35, 'E':157, 'W':150})
-fieldset.V.show()
-pset.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150}, field='vector') #, projection=cartopy.crs.EqualEarth()
-
-
