@@ -178,6 +178,9 @@ V = NestedField('V', [fieldset_ROMS.V, fieldset_BRAN.V])
 temp = NestedField('temp', [fieldset_ROMS.temp, fieldset_BRAN.temp]) 
 fieldset = FieldSet(U, V)#, temp) Including temp. posted to Gitter: https://gitter.im/OceanPARCELS/parcels_running
 
+fieldset.add_field(temp)
+fieldset.temp.interp_method = 'nearest'
+
 # Keep track of which field is being interpolated: Box 6 & 7 https://nbviewer.jupyter.org/github/OceanParcels/parcels/blob/master/parcels/examples/tutorial_NestedFields.ipynb
 # This was modified to match the code block below as it was having a similar error due to the grid not being defined right.
 # Adding this made the code REALLY SLOW - Once we confirm the nesting is working correctly, I suggest removing (commenting out).
@@ -204,7 +207,7 @@ random.seed(123456) # Set random seed
 
 class SampleParticle(JITParticle): # Define a new particle class
     age = Variable('age', dtype=np.float32, initial=0.) # initialise age
-    #temp = Variable('temp', dtype=np.float32, initial=fieldset.temp)  # initialise temperature
+    temp = Variable('temp', dtype=np.float32, initial=fieldset.temp[0])  # initialise temperature
     #bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy)  # initialise bathy
     distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
     prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
@@ -232,8 +235,8 @@ def SampleAge(particle, fieldset, time):
 def SampleNestedFieldIndex(particle, fieldset, time):
     particle.f = fieldset.F[time, particle.depth, particle.lat, particle.lon]
 
-#def SampleTemp(particle, fieldset, time):
-    #particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
+def SampleTemp(particle, fieldset, time):
+    particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
 
 #def SampleBathy(particle, fieldset, time):
     #particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
@@ -244,7 +247,7 @@ pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, lon=lon, lat=lat, 
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
-kernels = pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + BrownianMotion2D + SampleNestedFieldIndex# + SampleTemp + SampleBathy
+kernels = pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + BrownianMotion2D + SampleNestedFieldIndex + SampleTemp #+ SampleBathy
 
 pset.execute(kernels, 
              dt=-delta(minutes=30), 
@@ -255,3 +258,6 @@ pset.execute(kernels,
 pfile.close()
 
 plotTrajectoriesFile('Output/1994_Back.nc')
+
+# Note the basic plotting of fields does not work because there is no fieldset.grid (would be nice to fix this)
+# pset.show()
