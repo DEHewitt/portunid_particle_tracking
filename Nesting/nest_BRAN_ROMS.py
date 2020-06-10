@@ -164,27 +164,38 @@ fieldset_ROMS.temp.interp_method = 'nearest'
 
 out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Back.nc'
 
+# If output file already exists then remove it
 if os.path.exists(out_file):
     os.remove(out_file)
     
 
 def DeleteParticle(particle, fieldset, time):
     particle.delete()
-    
+
+# Nest the two models    
 U = NestedField('U', [fieldset_ROMS.U, fieldset_BRAN.U])
 V = NestedField('V', [fieldset_ROMS.V, fieldset_BRAN.V])
 temp = NestedField('temp', [fieldset_ROMS.temp, fieldset_BRAN.temp]) 
 fieldset = FieldSet(U, V)#, temp) Including temp. posted to Gitter: https://gitter.im/OceanPARCELS/parcels_running
 
-# Need to keep track of which field is being interpolated: Box 6 & 7 https://nbviewer.jupyter.org/github/OceanParcels/parcels/blob/master/parcels/examples/tutorial_NestedFields.ipynb
+# Keep track of which field is being interpolated: Box 6 & 7 https://nbviewer.jupyter.org/github/OceanParcels/parcels/blob/master/parcels/examples/tutorial_NestedFields.ipynb
+# This was modified to match the code block below as it was having a similar error due to the grid not being defined right.
+# Adding this made the code REALLY SLOW - Once we confirm the nesting is working correctly, I suggest removing (commenting out).
+size2D_ROMS = (fieldset_ROMS.U.grid.ydim, fieldset_ROMS.U.grid.xdim)
+size2D_BRAN = (fieldset_BRAN.U.grid.ydim, fieldset_BRAN.U.grid.xdim)
+F1 = Field('F1', np.ones((size2D_ROMS), dtype=np.float32), lon=fieldset.U[0].grid.lon, lat=fieldset.U[0].grid.lat, mesh='spherical')
+F2 = Field('F2', 2*np.ones((size2D_BRAN), dtype=np.float32), lon=fieldset.U[1].grid.lon, lat=fieldset.U[1].grid.lat, mesh='spherical')
+F = NestedField('F', [F1, F2])
+fieldset.add_field(F)
+
 
 # Create field of Kh_zonal and Kh_meridional, using same grid as U
 # See Eriks comment on github: https://github.com/OceanParcels/parcels/issues/798
 # Note this now uses the BRAN grid (shown by the [1]) not the ROMS grid (which was [0])
-size2D_0 = (fieldset.U[1].grid.ydim, fieldset.U[1].grid.xdim)
-fieldset.add_field(Field('Kh_zonal', Kh_zonal*np.ones(size2D_0), 
+size2D_1 = (fieldset.U[1].grid.ydim, fieldset.U[1].grid.xdim)
+fieldset.add_field(Field('Kh_zonal', Kh_zonal*np.ones(size2D_1), 
                          lon=fieldset.U[1].grid.lon, lat=fieldset.U[1].grid.lat, mesh='spherical'))
-fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D_0), 
+fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D_1), 
                          lon=fieldset.U[1].grid.lon, lat=fieldset.U[1].grid.lat, mesh='spherical'))
 
 fieldset.add_constant('maxage', 40.*86400)
@@ -200,7 +211,7 @@ class SampleParticle(JITParticle): # Define a new particle class
                         initial=attrgetter('lon'))  # the previous longitude
     prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                         initial=attrgetter('lat'))  # the previous latitude.
-
+    f = Variable('f', dtype=np.int32) # Identifies the grid the particle is in (ROMS or BRAN)
 
 def SampleDistance(particle, fieldset, time):
     # Calculate the distance in latitudinal direction (using 1.11e2 kilometer per degree latitude)
@@ -217,6 +228,10 @@ def SampleAge(particle, fieldset, time):
     if particle.age > fieldset.maxage:
         particle.delete()
 
+# Kernel to identify which grid a particle is in (Very slow once this is included)        
+def SampleNestedFieldIndex(particle, fieldset, time):
+    particle.f = fieldset.F[time, particle.depth, particle.lat, particle.lon]
+
 #def SampleTemp(particle, fieldset, time):
     #particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
 
@@ -229,10 +244,10 @@ pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, lon=lon, lat=lat, 
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
-kernels = pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + BrownianMotion2D# + SampleTemp + SampleBathy
+kernels = pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + BrownianMotion2D + SampleNestedFieldIndex# + SampleTemp + SampleBathy
 
 pset.execute(kernels, 
-             dt=-delta(minutes=5), 
+             dt=-delta(minutes=30), 
              output_file=pfile, 
              verbose_progress=True,
              recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle},
