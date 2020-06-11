@@ -17,46 +17,7 @@ import os
 from operator import attrgetter
 
 out_dir = '/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/Output'
-out_dir = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/Output'
-
-
-### Initial attempt trying to read each field from netcdfs ### (delete?)
-
-#file.BRAN = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
- #            'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-  #           'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))} # read in file(s) for BRAN for specific year (e.g. 2007)
-#file.ROMS = sorted(glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/outer_avg_*')) 
-
-#dimensions.BRAN = {'U': {'lat': 'yu_ocean', 'lon': 'xu_ocean', 'depth': 'st_ocean', 'time': 'Time'},
- #                  'V': {'lat': 'yu_ocean', 'lon': 'xu_ocean', 'depth': 'st_ocean', 'time': 'Time'},
-  #                 'temp': {'lat': 'yt_ocean', 'lon': 'xt_ocean', 'depth': 'st_ocean', 'time': 'Time'}}
-# timestamp.BRAN = # not sure what this means
-#indices.BRAN = {'depth': [0]} # specify surface bin - taken from previous script. different to ROMS (=29)
-
-#field.BRAN.U = Field.from_netcdf(file.BRAN, variable = ('U':'u'), dimensions = dimesnions.BRAN)
-#field.BRAN.V = Field.from_netcdf(file.BRAN, variable = ('V':'v'), dimensions = dimesnions.BRAN)#, timestamps = timestamp.BRAN)# meridional velocity
-#field.BRAN.T = Field.from_netcdf(file.BRAN, variable = ('temp':'temp'), dimensions = dimesnions.BRAN)#, timestamps = timestamp.BRAN)# temp
-#field.BRAN.M = # directory to mesh - type: flat or spherical?
-
-#dimensions.ROMS = {'U': {'lon': 'lon_psi', 'lat': 'lat_psi', 'depth': 's_rho', 'time': 'ocean_time'},
- #            'V': {'lon': 'lon_psi', 'lat': 'lat_psi', 'depth': 's_rho', 'time': 'ocean_time'},
-  #           'temp': {'lon': 'lon_psi', 'lat': 'lat_psi', 'depth': 's_rho', 'time': 'ocean_time'},
-   #          'bathy': {'lon': 'lon_rho', 'lat': 'lat_rho'}}
-# timestamp.ROMS = 
-#indices.ROMS = {'depth': [29]} # specify surface bin - taken from previous script. different to BRAN (=0)
-
-#field.ROMS.U = Field.from_nemo(file.ROMS, variable = ('U'), dimensions = dimesnions.ROMS)#, timestamps = timestamp.ROMS) # zonal  velocity
-#field.ROMS.V = Field.from_nemo(file.ROMS, variable = ('V':'v'), dimensions = dimesnions.ROMS)#, timestamps = timestamp.ROMS)# meridional velocity
-#field.ROMS.T = Field.from_nemo(file.ROMS, variable = ('temp':'temp'), dimensions = dimesnions.ROMS)#, timestamps = timestamp.ROMS)# temp
-# field.ROMS.B = '/home/z5278054/EACouter_mesh_srho.nc' # bathymetry - do this in post-processing?
-#field.ROMS.M = '/home/z5278054/EACouter_mesh_srho.nc' # mesh-mask
-
-#U = NestedField('U', [field.BRAN.U, field.ROMS.U])
-#V = NestedField('V', [field.BRAN.V, field.ROMS.V])
-#T = NestedField('T', [field.BRAN.T, field.ROMS.T])
-# B = NestedField('h', [ , field.ROMS.B]) # no bathy in BRAN - issue? is it called 'bathy' or 'h'?
-
-#fieldset = FieldSet(U, V, T)#, B)
+#out_dir = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/Output'
 
 npart = 1  # number of particles to be released
 repeatdt = delta(days=4)  # release from the same set of locations every X day
@@ -109,12 +70,12 @@ Kh_meridional = 10
 # a) Name them differently (e.g. time_BRAN and time_ROMS) and store both in output and correct in R
 # b) Sammple the field being interpolated and correct based on this
 # BRAN - needs mesh?
-#filenames_BRAN = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-#             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-#             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
-filenames_BRAN = {'U': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_u_*')), 
-             'V': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_v_*')),
-             'temp': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_temp_*'))}
+filenames_BRAN = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
+             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
+             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
+#filenames_BRAN = {'U': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_u_*')), 
+ #            'V': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_v_*')),
+  #           'temp': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_temp_*'))}
 
 variables_BRAN = {'U': 'u',
              'V': 'v',
@@ -134,13 +95,13 @@ fieldset_BRAN.temp.interp_method = 'nearest'
 
 # ROMS
 
-ufiles = sorted(glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/ROMS Data/outer_avg_*'))
-#ufiles = sorted(glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/outer_avg_*'))
+#ufiles = sorted(glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/ROMS Data/outer_avg_*'))
+ufiles = sorted(glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/outer_avg_*'))
 ufiles = ufiles#[start_id:end_id+1] # not sure what the +1 is doing here/this part is for katana jobs?
 vfiles = ufiles
 tfiles = ufiles
 # bfiles = '/home/z5278054/EACouter_mesh_srho.nc'
-mesh_mask = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/ROMS Data/EACouter_mesh_srho.nc' 
+mesh_mask = 'C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/EACouter_mesh_srho.nc' 
 
 filenames_ROMS = {'U': ufiles,
              'V': vfiles,
@@ -168,7 +129,6 @@ out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Back.nc'
 if os.path.exists(out_file):
     os.remove(out_file)
     
-
 def DeleteParticle(particle, fieldset, time):
     particle.delete()
 
@@ -176,7 +136,7 @@ def DeleteParticle(particle, fieldset, time):
 U = NestedField('U', [fieldset_ROMS.U, fieldset_BRAN.U])
 V = NestedField('V', [fieldset_ROMS.V, fieldset_BRAN.V])
 temp = NestedField('temp', [fieldset_ROMS.temp, fieldset_BRAN.temp]) 
-fieldset = FieldSet(U, V)#, temp) Including temp. posted to Gitter: https://gitter.im/OceanPARCELS/parcels_running
+fieldset = FieldSet(U, V)
 
 fieldset.add_field(temp)
 fieldset.temp.interp_method = 'nearest'
@@ -190,7 +150,6 @@ F1 = Field('F1', np.ones((size2D_ROMS), dtype=np.float32), lon=fieldset.U[0].gri
 F2 = Field('F2', 2*np.ones((size2D_BRAN), dtype=np.float32), lon=fieldset.U[1].grid.lon, lat=fieldset.U[1].grid.lat, mesh='spherical')
 F = NestedField('F', [F1, F2])
 fieldset.add_field(F)
-
 
 # Create field of Kh_zonal and Kh_meridional, using same grid as U
 # See Eriks comment on github: https://github.com/OceanParcels/parcels/issues/798
@@ -238,9 +197,6 @@ def SampleNestedFieldIndex(particle, fieldset, time):
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
 
-#def SampleBathy(particle, fieldset, time):
-    #particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
-
 end_time = np.repeat(end_time,len(lon))
 
 pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, lon=lon, lat=lat, time=end_time, repeatdt=repeatdt)
@@ -257,7 +213,7 @@ pset.execute(kernels,
 			 endtime = start_time)
 pfile.close()
 
-plotTrajectoriesFile('Output/1994_Back.nc')
+plotTrajectoriesFile('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/Output/1994_Back.nc')
 
 # Note the basic plotting of fields does not work because there is no fieldset.grid (would be nice to fix this)
 # pset.show()
