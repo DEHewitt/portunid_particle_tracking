@@ -5,19 +5,16 @@ Created on Mon Jun  1 13:12:42 2020
 @author: Dan
 """
 from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, BrownianMotion2D, random, NestedField
-from parcels import ErrorCode, plotTrajectoriesFile
+from parcels import ErrorCode
 import numpy as np
 from glob import glob
-#import time as timelib
 from datetime import timedelta as delta
 from datetime import datetime as datetime
-#import cartopy
 import math
 import os
 from operator import attrgetter
 
-out_dir = '/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/Output'
-#out_dir = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/Output'
+out_dir = '/home/z5278054/Nesting'
 
 npart = 1  # number of particles to be released
 repeatdt = delta(days=4)  # release from the same set of locations every X day
@@ -33,49 +30,25 @@ lat_array = [-28.165, -28.890, -29.432, -30.864, -31.645, -31.899, -32.193, -32.
 lon = np.repeat(lon_array,npart)
 lat = np.repeat(lat_array,npart)
 
-array_ref = 0 # which season to simulate (0 = 1994/95, 22 = 2015/16)
+array_ref = 6 # which season to simulate (0 = 1994/95, 22 = 2015/16)
 
 # Spawning season is September to March (Heasman et al. 1985)
 # Reality language: start date will be 30th August and run until 15th May (the year after) to allow for the full 40 days of tracking.
 # Particle reality: the first day of life (and hence the 'start') for particles will be 15th May.
 
-# Manually set the filenames. The names correspond to the number of days since 1, 1, 1990
-file_nos = np.arange(1461, 9742, 30)
 year_array = np.arange(1994, 2016, 1)
 
-## I think we can delete the following commented out section but leaving for now
-# Days since 1990
-#start_time = datetime(year_array[array_ref],8, 30) # year, month, day
-#start_dys = start_time-datetime(1990,1,1) + delta(days=1)
-#start_id = np.where(file_nos<=start_dys.days) #Find the reference file location
-#start_id = start_id[0][-1]
-
-#end_time = datetime(year_array[array_ref]+1, 5, 15)  #year, month, day
-#end_dys = end_time-datetime(1990,1,1) + delta(days=1)
-#end_id = np.where(file_nos>=end_dys.days) #Find the reference file location
-#end_id = end_id[0][0]
-
-#runtime = end_time-start_time + delta(days=1)
-
-start_time = datetime(year_array[array_ref],1, 15) # year, month, day
-end_time = datetime(year_array[array_ref], 3, 15)  #year, month, day
-
+start_time = datetime(year_array[array_ref], 8, 30) # year, month, day
+end_time = datetime(year_array[array_ref]+1, 5, 10)  #year, month, day
 
 # Set diffusion constants (in m/s)
 Kh_zonal = 10
 Kh_meridional = 10
-### Define fieldsets then read fields from there and nest (see https://github.com/OceanParcels/Parcelsv2.0PaperNorthSeaScripts/blob/master/run_northsea_mp.py#L82-L83)
-# Time stored differently in BRAN (days since 1/1/1979) and ROMS (days since 1/1/1990)
-# Solutions: 
-# a) Name them differently (e.g. time_BRAN and time_ROMS) and store both in output and correct in R
-# b) Sammple the field being interpolated and correct based on this
-# BRAN - needs mesh?
-filenames_BRAN = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
-#filenames_BRAN = {'U': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_u_*')), 
- #            'V': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_v_*')),
-  #           'temp': (glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_temp_*'))}
+
+# Define BRAN fieldset
+filenames_BRAN = {'U': sorted(glob('/srv/scratch/z3374139/BRAN_AUS/Ocean_u_*')),
+                  'V': sorted(glob('/srv/scratch/z3374139/BRAN_AUS/Ocean_v_*')),
+                  'temp': sorted(glob('/srv/scratch/z3374139/BRAN_AUS/Ocean_temp_*'))}
 
 variables_BRAN = {'U': 'u',
              'V': 'v',
@@ -93,20 +66,16 @@ fieldset_BRAN = FieldSet.from_netcdf(filenames_BRAN, variables_BRAN, dimensions_
 fieldset_BRAN.add_constant('maxage', 40.*86400)
 fieldset_BRAN.temp.interp_method = 'nearest'
 
-# ROMS
-
-#ufiles = sorted(glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Nesting/ROMS Data/outer_avg_*'))
-ufiles = sorted(glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/outer_avg_*'))
-ufiles = ufiles#[start_id:end_id+1] # not sure what the +1 is doing here/this part is for katana jobs?
+# Define ROMS fieldset
+ufiles = sorted(glob('/srv/scratch/z3097808/20year_run/20year_freerun_output_NEWnci/outer_avg_*'))
+ufiles = ufiles
 vfiles = ufiles
 tfiles = ufiles
-# bfiles = '/home/z5278054/EACouter_mesh_srho.nc'
-mesh_mask = 'C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/EACouter_mesh_srho.nc' 
+mesh_mask = '/home/z5278054/EACouter_mesh_srho.nc' 
 
 filenames_ROMS = {'U': ufiles,
              'V': vfiles,
              'temp': tfiles,
-            # 'bathy': bfiles, # not using
              'mesh_mask': mesh_mask}
 
 variables_ROMS = {'U': 'u',
@@ -123,7 +92,7 @@ fieldset_ROMS = FieldSet.from_nemo(filenames_ROMS, variables_ROMS, dimensions_RO
 fieldset_ROMS.add_constant('maxage', 40.*86400)
 fieldset_ROMS.temp.interp_method = 'nearest'
 
-out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Back.nc'
+out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Back.nc' # be sure to change naming for back/forawrd runs
 
 # If output file already exists then remove it
 if os.path.exists(out_file):
@@ -167,7 +136,6 @@ random.seed(123456) # Set random seed
 class SampleParticle(JITParticle): # Define a new particle class
     age = Variable('age', dtype=np.float32, initial=0.) # initialise age
     temp = Variable('temp', dtype=np.float32, initial=fieldset.temp[0])  # initialise temperature
-    #bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy)  # initialise bathy
     distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
     prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
                         initial=attrgetter('lon'))  # the previous longitude
@@ -206,14 +174,9 @@ pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 kernels = pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + BrownianMotion2D + SampleNestedFieldIndex + SampleTemp #+ SampleBathy
 
 pset.execute(kernels, 
-             dt=-delta(minutes=30), 
+             dt=-delta(minutes=30), # interpolation timestep, positive/negative for forwards/backwards
              output_file=pfile, 
              verbose_progress=True,
              recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle},
 			 endtime = start_time)
 pfile.close()
-
-plotTrajectoriesFile('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Nesting/Output/1994_Back.nc')
-
-# Note the basic plotting of fields does not work because there is no fieldset.grid (would be nice to fix this)
-# pset.show()

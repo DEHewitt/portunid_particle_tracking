@@ -4,7 +4,7 @@
 
 library(ncdf4)
 
-file_list <- list.files("../../srv/scratch/z3374139/BRAN_AUS/", recursive = T, full.names = T, pattern ="Ocean_")
+file_list <- list.files("/home/z5278054/Nesting/", recursive = T, full.names = T, pattern ="Ocean_")
 
 for (i in file_list){
 
