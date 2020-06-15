@@ -36,8 +36,6 @@ array_ref = 6 # which season to simulate (0 = 1994/95, 22 = 2015/16)
 # Reality language: start date will be 30th August and run until 15th May (the year after) to allow for the full 40 days of tracking.
 # Particle reality: the first day of life (and hence the 'start') for particles will be 15th May.
 
-# Manually set the filenames. The names correspond to the number of days since 1, 1, 1990
-file_nos = np.arange(1461, 9742, 30) # currently unused
 year_array = np.arange(1994, 2016, 1)
 
 start_time = datetime(year_array[array_ref], 8, 30) # year, month, day
