@@ -30,7 +30,7 @@ lat_array = [-28.165, -28.890, -29.432, -30.864, -31.645, -31.899, -32.193, -32.
 lon = np.repeat(lon_array,npart)
 lat = np.repeat(lat_array,npart)
 
-array_ref = 6 # which season to simulate (0 = 1994/95, 22 = 2015/16)
+array_ref = int(os.environ['PBS_ARRAYID']) # which season to simulate (0 = 1994/95, 22 = 2015/16)
 
 # Spawning season is September to March (Heasman et al. 1985)
 # Reality language: start date will be 30th August and run until 15th May (the year after) to allow for the full 40 days of tracking.
