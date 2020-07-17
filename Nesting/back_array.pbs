@@ -1,0 +1,21 @@
+#!/bin/bash
+ 
+#PBS -l select=1:ncpus=2:mem=6gb:mpiprocs=2
+#PBS -l walltime=11:59:00
+#PBS -j oe
+#PBS -J 0-21
+#PBS -N testjob
+#PBS -M daniel.hewitt@unsw.edu.au
+#PBS -m ae
+
+ 
+cd $HOME
+
+module purge
+
+module load openmpi/3.1.2
+module load python/3.6.5
+
+source mypython3env/bin/activate
+
+mpirun -n 2 python3 test.py
