@@ -4,7 +4,7 @@ Created on Wed May  6 15:20:21 2020
 
 @author: hayde
 """
-from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, BrownianMotion2D, random, plotTrajectoriesFile
+from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, DiffusionUniformKh, random, plotTrajectoriesFile
 from parcels import ErrorCode
 import numpy as np
 from glob import glob
@@ -13,16 +13,15 @@ from datetime import datetime as datetime
 import os
 import math
 from operator import attrgetter
-import cartopy
+#import cartopy
 #import netCDF4
 
-filenames = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
-#{'U': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
-        #     'V': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
-            # 'temp': (glob('/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}#,
-             #'mesh_mask' : '/Users/hayde/Crab-Dispersal/BRAN/AUS/grid_spec.nc'} # For Hayden}
+#filenames = {'U': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_u_*')), 
+#             'V': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_v_*')),
+#             'temp': (glob('/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/AUS/ocean_temp_*'))}
+filenames = {'U': sorted(glob('/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_u_*')),
+                  'V': sorted(glob('/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_v_*')),
+                  'temp': sorted(glob('/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/AUS/Ocean_temp_*'))}
 
 
 
@@ -92,14 +91,15 @@ fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D),
 random.seed(123456) # Set random seed
 
 class SampleParticle(JITParticle):         # Define a new particle class
+    sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
     age = Variable('age', dtype=np.float32, initial=0.) # initialise age
-    temp = Variable('temp', dtype=np.float32, initial=fieldset.temp)  # initialise temperature
+    temp = Variable('temp', dtype=np.float32, initial=0)  # initialise temperature
     #bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy)  # initialise bathy
     distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
     prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
-                        initial=attrgetter('lon'))  # the previous longitude
+                        initial=0)  # the previous longitude
     prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
-                        initial=attrgetter('lat'))  # the previous latitude.
+                        initial=0)  # the previous latitude.
 
 
 def SampleDistance(particle, fieldset, time):
@@ -123,6 +123,13 @@ def SampleAge(particle, fieldset, time):
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
 
+# Kernel to speed up initialisation by using JIT mode not scipy
+def SampleInitial(particle, fieldset, time): 
+    if particle.sampled == 0:
+         particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
+         particle.prev_lon = particle.lon
+         particle.prev_lat = particle.lat
+         particle.sampled = 1
 
 end_time = np.repeat(end_time,len(lon))
 start_time = np.repeat(start_time,len(lon))
@@ -132,8 +139,8 @@ pset = ParticleSet.from_list(fieldset, pclass=SampleParticle,time = end_time, lo
 
 pset.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150}) #
 
-#out_file = "/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
-out_file = "/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
+out_file = "/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
+#out_file = "/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 if os.path.exists(out_file):
@@ -141,7 +148,7 @@ if os.path.exists(out_file):
 
 
 
-kernels = pset.Kernel(AdvectionRK4) +  SampleAge+ SampleTemp +  SampleDistance + BrownianMotion2D #SampleBathy  +
+kernels = SampleInitial + pset.Kernel(AdvectionRK4) +  SampleAge+ SampleTemp +  SampleDistance + DiffusionUniformKh #SampleBathy  +
 
 pset.show()
 
@@ -160,8 +167,8 @@ pfile.close()
 pset.show(domain={'N':-23, 'S':-38, 'E':157, 'W':150}, field='vector') #
 
 
-plotTrajectoriesFile("/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
-#plotTrajectoriesFile("/Users/hayde/Portunid-Dispersal/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
+#plotTrajectoriesFile("/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
+plotTrajectoriesFile("/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc");
 
 fieldset.U.show(domain={'N':-28, 'S':-37, 'E':157, 'W':150})
 fieldset.temp.show(domain={'N':-20, 'S':-35, 'E':157, 'W':150})
