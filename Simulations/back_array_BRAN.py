@@ -95,7 +95,7 @@ if os.path.exists(out_file):
 
 random.seed(123456) # Set random seed
     
-class SampleParticle(JITParticle): # Define a new particle class
+class SampleParticle(JITParticle): # Define a new particle class - includes fixes so particles initialise in JIT mode (see SampleInitial kernel below)
     sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
     age = Variable('age', dtype=np.float32, initial=0.) # initialise age
     temp = Variable('temp', dtype=np.float32, initial=0)  # initialise temperature
@@ -138,7 +138,7 @@ pset = ParticleSet.from_list(fieldset, pclass=SampleParticle,time = end_time, lo
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
-kernels = SampleInitial + pset.Kernel(AdvectionRK4) + SampleAge + SampleTemp +  SampleDistance + BrownianMotion2D
+kernels = SampleInitial + pset.Kernel(AdvectionRK4) + SampleAge + SampleTemp +  SampleDistance + BrownianMotion2D # SampleInitial kernel must come first to initialise particles in JIT mode
 
 pset.execute(kernels, 
              dt=-delta(minutes=5), 
