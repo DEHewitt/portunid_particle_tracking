@@ -15,13 +15,13 @@ out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 npart = 400  # number of particles to be released
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
-array_ref = int(os.environ['PBS_ARRAY_INDEX'])
+array_ref = 1#int(os.environ['PBS_ARRAY_INDEX'])
 
 ##############
 # Forward: 14 #
 ##############
 
-temp_lon_array = [147.848, 146.875, 147.866, # Hinchinbrook Channel
+temp_lon_array = np.array([147.848, 146.875, 147.866, # Hinchinbrook Channel
                   152.538, 152.447, 152.600, # The Narrows
                   153.762, 153.268, 153.818, # Hervey Bay
                   153.636, 153.570, 153.761, # Moreton Bay
@@ -34,8 +34,8 @@ temp_lon_array = [147.848, 146.875, 147.866, # Hinchinbrook Channel
                   152.775, 152.605, 153.013, # Wallis Lake
                   152.312, 152.261, 152.764, # Port Stephens
                   152.045, 151.975, 152.602, # Hunter River
-                  151.577, 151.438, 151.936] # Hawkesbury River
-temp_lat_array = [-18.541, -18.541, -18.541, 
+                  151.577, 151.438, 151.936]) # Hawkesbury River
+temp_lat_array = np.array([-18.541, -18.541, -18.541, 
                   -23.850, -23.850, -23.850,
                   -25.817, -25.817, -25.817, 
                   -27.339, -27.339, -27.339,
@@ -48,7 +48,7 @@ temp_lat_array = [-18.541, -18.541, -18.541,
                   -32.193, -32.193, -32.193,
                   -32.719, -32.719, -32.719, 
                   -32.917, -32.917, -32.917,
-                  -33.578, -33.578, -33.578]
+                  -33.578, -33.578, -33.578])
 temp_year_array = np.arange(2009, 2019, 1)
 
 lon_array = np.repeat(temp_lon_array, temp_year_array.size)
@@ -57,7 +57,6 @@ year_array = np.tile(temp_year_array, temp_lat_array.size)
 
 lon = np.repeat(lon_array[array_ref],npart)
 lat = np.repeat(lat_array[array_ref],npart)
-year_array = np.tile(temp_year_array, temp_lat_array.size)
 
 #################
 # Backwards: 14 #
@@ -116,7 +115,7 @@ fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D),
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
 
 # Where to save
-out_file = str(out_dir)+'/'+str(year_array[array_ref])'_Lat'+str(lat_array[array_ref])+'_BRAN2015_Forward.nc' # be sure to change naming for back/forawrd runs
+out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Lat'+str(lat_array[array_ref])+'_BRAN2015_Forward.nc' # be sure to change naming for back/forawrd runs
 
 # If output file already exists then remove it
 if os.path.exists(out_file):
