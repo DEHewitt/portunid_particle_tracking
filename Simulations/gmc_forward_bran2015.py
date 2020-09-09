@@ -15,11 +15,11 @@ out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 npart = 400  # number of particles to be released
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
-array_ref = 1#int(os.environ['PBS_ARRAY_INDEX'])
+array_ref = int(os.environ['PBS_ARRAY_INDEX'])
 
-##############
+###############
 # Forward: 14 #
-##############
+###############
 
 temp_lon_array = np.array([147.848, 146.875, 147.866, # Hinchinbrook Channel
                   152.538, 152.447, 152.600, # The Narrows
@@ -70,11 +70,9 @@ lat = np.repeat(lat_array[array_ref],npart)
 #lat = np.repeat(lat_array,npart)
 
 # Spawning season is September to March (Heasman et al. 1985)
-# Reality language: start date will be 30th August and run until 15th May (the year after) to allow for the full 40 days of tracking.
-# Particle reality: the first day of life (hence the 'start') for particles will be 15th May.
 
 start_time = datetime(year_array[array_ref], 8, 1) # year, month, day
-end_time = datetime(year_array[array_ref]+1, 3, 31)  #year, month, day
+end_time = datetime(year_array[array_ref]+1, 3, 31) # year, month, day
 
 runtime = end_time-start_time + delta(days=1)
 
@@ -170,8 +168,10 @@ def SampleInitial(particle, fieldset, time):
          particle.prev_lon = particle.lon
          particle.prev_lat = particle.lat
          particle.sampled = 1
+         
+start_time = np.repeat(start_time,len(lon))
 
-pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=end_time, lon=lon, lat=lat, repeatdt=repeatdt)
+pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=start_time, lon=lon, lat=lat, repeatdt=repeatdt)
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
