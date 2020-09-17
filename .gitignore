@@ -2,3 +2,4 @@ BRAN/Output/*
 .spyp*
 Nesting/Output/*
 Nesting/ROMS Data/*
+*.DS_Store
