@@ -12,8 +12,8 @@ import math
 
 out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 
-npart = 100  # number of particles to be released
-repeatdt = delta(days = 1)  # release from the same set of locations every X day
+npart = 100 # number of particles to be released
+repeatdt = delta(days = 1) # release from the same set of locations every X day
 
 ##############
 # Forward: 9 #

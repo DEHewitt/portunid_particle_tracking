@@ -1,6 +1,6 @@
-#!home/z5278054/mypython3env/bin/python3
+#!home/z5278054/python_parcels/bin/python3
 
-from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, BrownianMotion2D, random
+from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, DiffusionUniformKh, random
 from parcels import ErrorCode
 import numpy as np
 from glob import glob
@@ -12,51 +12,51 @@ import math
 
 out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 
-npart = 400  # number of particles to be released
+npart = 1000  # number of particles to be released
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX'])
 
 ###############
-# Forward: 14 #
+# Forward: 42 #
 ###############
 
-temp_lon_array = np.array([147.848, 146.875, 147.866, # Hinchinbrook Channel
-                  152.538, 152.447, 152.600, # The Narrows
-                  153.762, 153.268, 153.818, # Hervey Bay
-                  153.636, 153.570, 153.761, # Moreton Bay
-                  153.790, 153.640, 153.869, # Tweed River
-                  153.799, 153.630, 153.852, # Richmond River
-                  153.736, 153.483, 153.771, # Clarence River
-                  153.172, 153.104, 153.275, # Macelay River
-                  153.048, 152.928, 153.134, # Camden Haven
-                  152.946, 152.787, 153.094, # Manning River
-                  152.775, 152.605, 153.013, # Wallis Lake
-                  152.312, 152.261, 152.764, # Port Stephens
-                  152.045, 151.975, 152.602, # Hunter River
-                  151.577, 151.438, 151.936]) # Hawkesbury River
-temp_lat_array = np.array([-18.541, -18.541, -18.541, 
-                  -23.850, -23.850, -23.850,
-                  -25.817, -25.817, -25.817, 
-                  -27.339, -27.339, -27.339,
-                  -28.165, -28.165, -28.165,
-                  -28.890, -28.890, -28.890,
-                  -29.432, -29.432, -29.432,
-                  -30.864, -30.864, -30.864,
-                  -31.645, -31.645, -31.645, 
-                  -31.899, -31.899, -31.899, 
-                  -32.193, -32.193, -32.193,
-                  -32.719, -32.719, -32.719, 
-                  -32.917, -32.917, -32.917,
-                  -33.578, -33.578, -33.578])
-temp_year_array = np.arange(2009, 2019, 1)
+temp_lon_array = np.array([147.848])#,# 146.875, 147.866])#, # Hinchinbrook Channel
+#                  152.538, #152.447, 152.600, # The Narrows
+ #                 153.762, #153.268, 153.818, # Hervey Bay
+  #                153.636, #153.570, 153.761, # Moreton Bay
+   #               153.790, #153.640, 153.869, # Tweed River
+    #              153.799, #153.630, 153.852, # Richmond River
+     #             153.736, #153.483, 153.771, # Clarence River
+      #            153.172, #153.104, 153.275, # Macleay River
+       #           153.048, #152.928, 153.134, # Camden Haven
+        #          152.946, #152.787, 153.094, # Manning River
+         #         152.775, #152.605, 153.013, # Wallis Lake
+          #        152.312, #152.261, 152.764, # Port Stephens
+           #       152.045, #151.975, 152.602, # Hunter River
+            #      151.577])#, 151.438, 151.936]) # Hawkesbury River
+temp_lat_array = np.array([-18.541])#, #-18.541, -18.541])#, 
+ #                 -23.850, #-23.850, -23.850,
+  #                -25.817, #-25.817, -25.817, 
+   #               -27.339, #-27.339, -27.339,
+    #              -28.165, #-28.165, -28.165,
+     #             -28.890, #-28.890, -28.890,
+      #            -29.432, #-29.432, -29.432,
+       #           -30.864, #-30.864, -30.864,
+        #          -31.645, #-31.645, -31.645, 
+         #         -31.899, #-31.899, -31.899, 
+          #        -32.193, #-32.193, -32.193,
+           #       -32.719, #-32.719, -32.719, 
+            #      -32.917, #-32.917, -32.917,
+             #     -33.578])#, -33.578, -33.578])
+temp_year_array = np.arange(2009, 2019, 1) # this only returns a range from 2009-2018
 
 lon_array = np.repeat(temp_lon_array, temp_year_array.size)
 lat_array = np.repeat(temp_lat_array, temp_year_array.size)
 year_array = np.tile(temp_year_array, temp_lat_array.size)
 
-lon = np.repeat(lon_array[array_ref],npart)
-lat = np.repeat(lat_array[array_ref],npart)
+lon = np.repeat(lon_array[array_ref], npart)
+lat = np.repeat(lat_array[array_ref], npart)
 
 #################
 # Backwards: 14 #
@@ -69,18 +69,18 @@ lat = np.repeat(lat_array[array_ref],npart)
 #lon = np.repeat(lon_array,npart)
 #lat = np.repeat(lat_array,npart)
 
-# Spawning season is September to March (Heasman et al. 1985)
+# Spawning season is September to March (Heasman et al. 1985), add on a month to ensure release particles have enough time to reach degree-days
 
-start_time = datetime(year_array[array_ref], 8, 1) # year, month, day
-end_time = datetime(year_array[array_ref]+1, 3, 31) # year, month, day
+start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
+end_time = datetime(year_array[array_ref]+1, 4, 30) # year, month, day
 
 runtime = end_time-start_time + delta(days=1)
 
-filenames = {'U': sorted(glob('/srv/scratch/z5278054/BRAN_AUS/BRAN_2015/Ocean_u_*')), 
-             'V': sorted(glob('/srv/scratch/z5278054/BRAN_AUS/BRAN_2015/Ocean_v_*')),
-             'temp': sorted(glob('/srv/scratch/z5278054/BRAN_AUS/BRAN_2015/Ocean_temp_*')),
-             'bathy': '/srv/scratch/z5278054/BRAN_AUS/BRAN_2015/grid_spec.nc',
-             'salt': sorted(glob('/srv/scratch/z5278054/BRAN_AUS/BRAN_2015/Ocean_salt_*'))}
+filenames = {'U': sorted(glob('/srv/scratch/z5278054/shared/BRAN_2015/Ocean_u_*')), 
+             'V': sorted(glob('/srv/scratch/z5278054/shared/BRAN_2015/Ocean_v_*')),
+             'temp': sorted(glob('/srv/scratch/z5278054/shared/BRAN_2015/Ocean_temp_*')),
+             'bathy': '/srv/scratch/z5278054/shared/BRAN_2015/grid_spec.nc',
+             'salt': sorted(glob('/srv/scratch/z5278054/shared/BRAN_2015/Ocean_salt_*'))}
 
 variables = {'U': 'u',
              'V': 'v',
@@ -95,10 +95,10 @@ dimensions['temp'] = {'lat': 'yt_ocean', 'lon': 'xt_ocean', 'depth': 'st_ocean',
 dimensions['bathy'] = {'lat': 'grid_y_T', 'lon': 'grid_x_T'} 
 dimensions['salt'] = {'lat': 'yt_ocean', 'lon': 'xt_ocean', 'depth': 'st_ocean', 'time': 'Time'}
 
-indices = {'depth': [0]} # surface only?
+#indices = {'depth': [0]} # try commenting this out and remove from call to FieldSet.from_netcdf()
 
 # Define fieldset
-fieldset = FieldSet.from_netcdf(filenames, variables, dimensions, indices, allow_time_extrapolation = True)
+fieldset = FieldSet.from_netcdf(filenames, variables, dimensions, allow_time_extrapolation = True) # indices, 
 fieldset.add_constant('maxage', 40.*86400)
 fieldset.temp.interp_method = 'nearest'
 
@@ -169,14 +169,14 @@ def SampleInitial(particle, fieldset, time):
          particle.prev_lat = particle.lat
          particle.sampled = 1
          
-start_time = np.repeat(start_time,len(lon))
+#start_time = np.repeat(start_time,len(lon))
 
 pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=start_time, lon=lon, lat=lat, repeatdt=repeatdt)
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 # SampleInitial kernel must come first to initialise particles in JIT mode
-kernels = SampleInitial + pset.Kernel(AdvectionRK4) + SampleAge + SampleTemp + SampleBathy + SampleSalt + SampleDistance + BrownianMotion2D
+kernels = SampleInitial + pset.Kernel(AdvectionRK4) + SampleAge + SampleTemp + SampleBathy + SampleSalt + SampleDistance + DiffusionUniformKh
 
 pset.execute(kernels, 
              dt=delta(minutes=5), 
