@@ -8,69 +8,35 @@ from datetime import timedelta as delta
 from datetime import datetime as datetime
 import os
 import math
-#from operator import attrgetter
+import pandas as pd
 
 out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 
-npart = 1000  # number of particles to be released
+npart = 3  # number of particles to be released
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX'])
+#array_ref = 1 # for local testing
 
-###############
-# Forward: 42 #
-###############
+n_locations = 23 # number of release locations
 
-temp_lon_array = np.array([147.848])#,# 146.875, 147.866])#, # Hinchinbrook Channel
-#                  152.538, #152.447, 152.600, # The Narrows
- #                 153.762, #153.268, 153.818, # Hervey Bay
-  #                153.636, #153.570, 153.761, # Moreton Bay
-   #               153.790, #153.640, 153.869, # Tweed River
-    #              153.799, #153.630, 153.852, # Richmond River
-     #             153.736, #153.483, 153.771, # Clarence River
-      #            153.172, #153.104, 153.275, # Macleay River
-       #           153.048, #152.928, 153.134, # Camden Haven
-        #          152.946, #152.787, 153.094, # Manning River
-         #         152.775, #152.605, 153.013, # Wallis Lake
-          #        152.312, #152.261, 152.764, # Port Stephens
-           #       152.045, #151.975, 152.602, # Hunter River
-            #      151.577])#, 151.438, 151.936]) # Hawkesbury River
-temp_lat_array = np.array([-18.541])#, #-18.541, -18.541])#, 
- #                 -23.850, #-23.850, -23.850,
-  #                -25.817, #-25.817, -25.817, 
-   #               -27.339, #-27.339, -27.339,
-    #              -28.165, #-28.165, -28.165,
-     #             -28.890, #-28.890, -28.890,
-      #            -29.432, #-29.432, -29.432,
-       #           -30.864, #-30.864, -30.864,
-        #          -31.645, #-31.645, -31.645, 
-         #         -31.899, #-31.899, -31.899, 
-          #        -32.193, #-32.193, -32.193,
-           #       -32.719, #-32.719, -32.719, 
-            #      -32.917, #-32.917, -32.917,
-             #     -33.578])#, -33.578, -33.578])
-temp_year_array = np.arange(2009, 2019, 1) # this only returns a range from 2009-2018
+year_array = np.arange(2009, 2019, 1) # make this correspond to model period
 
-lon_array = np.repeat(temp_lon_array, temp_year_array.size)
-lat_array = np.repeat(temp_lat_array, temp_year_array.size)
-year_array = np.tile(temp_year_array, temp_lat_array.size)
-
-lon = np.repeat(lon_array[array_ref], npart)
-lat = np.repeat(lat_array[array_ref], npart)
-
-#################
-# Backwards: 14 #
-#################
-
-#lon_array = [147.848, 152.538, 153.762, 153.636, 153.790, 153.799, 153.736, 153.172, 153.048, 152.946, 152.775, 152.312, 152.045, 151.577]
-#lat_array = [-18.541, -23.850, -25.817, -27.339, -28.165, -28.890, -29.432, -30.864, -31.645, -31.899, -32.193, -32.719, -32.917, -33.578]
-#year_array = np.arange(2009, 2019, 1)
-
-#lon = np.repeat(lon_array,npart)
-#lat = np.repeat(lat_array,npart)
+#possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv")
+possible_locations = pd.read_csv("/srv/scratch/z5278054/shared/possible_locations.csv") # read the points extracted from GEBCO
+#possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv") # for local testing
+df = pd.DataFrame(possible_locations) # convert to Pandas dataframe
 
 # Spawning season is September to March (Heasman et al. 1985), add on a month to ensure release particles have enough time to reach degree-days
+start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
+end_time = datetime(year_array[array_ref]+1, 4, 30) # year, month, day
+runtime = end_time-start_time + delta(days=1)
 
+locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
+lat = np.repeat(locations["lat"], npart) # repeat every location by the number of particles 
+lon = np.repeat(locations["lon"], npart)
+
+# Spawning season is September to March (Heasman et al. 1985), add on a month to ensure release particles have enough time to reach degree-days
 start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
 end_time = datetime(year_array[array_ref]+1, 4, 30) # year, month, day
 
@@ -113,7 +79,7 @@ fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D),
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
 
 # Where to save
-out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_Lat'+str(lat_array[array_ref])+'_BRAN2015_Forward.nc' # be sure to change naming for back/forawrd runs
+out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_BRAN2015_Forward.nc' # where to save; be sure to change naming for back/forawrd runs
 
 # If output file already exists then remove it
 if os.path.exists(out_file):
@@ -169,9 +135,15 @@ def SampleInitial(particle, fieldset, time):
          particle.prev_lat = particle.lat
          particle.sampled = 1
          
-#start_time = np.repeat(start_time,len(lon))
+pset_start = (datetime(year_array[array_ref],9,1)-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()  # start of spawning season
+#pset_start = 0 # for local testing
 
-pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=start_time, lon=lon, lat=lat, repeatdt=repeatdt)
+release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds()) # array of release times (use minus for back tracking)
+
+#time = np.tile(release_times, n_locations*npart) # duplicate release time for each point and the number of particles per point
+time = np.tile(np.repeat(release_times, npart), n_locations)
+
+pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=time, lon=lon, lat=lat, repeatdt=None)
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
