@@ -12,13 +12,11 @@ import pandas as pd
 
 out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 
-npart = 3  # number of particles to be released
+npart = 1000  # number of particles to be released
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX'])
 #array_ref = 1 # for local testing
-
-n_locations = 23 # number of release locations
 
 year_array = np.arange(2009, 2019, 1) # make this correspond to model period
 
@@ -26,6 +24,8 @@ year_array = np.arange(2009, 2019, 1) # make this correspond to model period
 possible_locations = pd.read_csv("/srv/scratch/z5278054/shared/possible_locations.csv") # read the points extracted from GEBCO
 #possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv") # for local testing
 df = pd.DataFrame(possible_locations) # convert to Pandas dataframe
+
+n_locations = df['ocean_zone'].nunique() # number of release locations
 
 # Spawning season is September to March (Heasman et al. 1985), add on a month to ensure release particles have enough time to reach degree-days
 start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
