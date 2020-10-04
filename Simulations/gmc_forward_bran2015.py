@@ -17,13 +17,22 @@ repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX'])
 #array_ref = 1 # for local testing
+mod_array_num = array_ref % 10 # This calculates the remainder after diving by 10 (to be used to get release location, ie pick one of 10 ocean zones)
 
 year_array = np.arange(2009, 2019, 1) # make this correspond to model period
+
+# Repeat 10 times (10 ocean zones to release in per year)
+year_test = np.repeat(year_array,10)
+year_test
 
 #possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv")
 possible_locations = pd.read_csv("/srv/scratch/z5278054/shared/possible_locations.csv") # read the points extracted from GEBCO
 #possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv") # for local testing
 df = pd.DataFrame(possible_locations) # convert to Pandas dataframe
+
+# subset possible locations dataframe (df) to specific ocean zone
+
+# df = XXXXXXXXXXXX
 
 n_locations = df['ocean_zone'].nunique() # number of release locations
 
