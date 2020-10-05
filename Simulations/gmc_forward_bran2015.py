@@ -13,6 +13,7 @@ import pandas as pd
 out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
 
 npart = 1000  # number of particles to be released
+#npart = 2 # for local testing
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX'])
@@ -20,9 +21,8 @@ array_ref = int(os.environ['PBS_ARRAY_INDEX'])
 
 year_array = np.arange(2009, 2019, 1) # make this correspond to model period
 
-#possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv")
-possible_locations = pd.read_csv("/srv/scratch/z5278054/shared/possible_locations.csv") # read the points extracted from GEBCO
-#possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/possible_locations.csv") # for local testing
+possible_locations = pd.read_csv("/srv/scratch/z5278054/shared/gmc_possible_locations.csv") # read the points extracted from GEBCO
+#possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/gmc_possible_locations.csv") # for local testing
 df = pd.DataFrame(possible_locations) # convert to Pandas dataframe
 
 n_locations = df['ocean_zone'].nunique() # number of release locations
@@ -33,6 +33,7 @@ end_time = datetime(year_array[array_ref]+1, 4, 30) # year, month, day
 runtime = end_time-start_time + delta(days=1)
 
 locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
+#locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = 2).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
 lat = np.repeat(locations["lat"], npart) # repeat every location by the number of particles 
 lon = np.repeat(locations["lon"], npart)
 
@@ -139,6 +140,7 @@ pset_start = (datetime(year_array[array_ref],9,1)-datetime.strptime(str(fieldset
 #pset_start = 0 # for local testing
 
 release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds()) # array of release times (use minus for back tracking)
+#release_times = pset_start + (np.arange(0, 2) * repeatdt.total_seconds()) # for local testing
 
 #time = np.tile(release_times, n_locations*npart) # duplicate release time for each point and the number of particles per point
 time = np.tile(np.repeat(release_times, npart), n_locations)
