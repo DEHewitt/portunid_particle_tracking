@@ -11,26 +11,35 @@ import math
 import pandas as pd
 
 out_dir = '/srv/scratch/z5278054/GMC_particle_tracking'
+#out_dir = '/srv/scratch/z3374139/GMC_particle_tracking'
 
 npart = 1000  # number of particles to be released
 #npart = 2 # for local testing
 repeatdt = delta(days = 1)  # release from the same set of locations every X day
 
-array_ref = int(os.environ['PBS_ARRAY_INDEX'])
+array_ref = int(os.environ['PBS_ARRAY_INDEX']) # 19 zones by 10 years = 190 = 0-189
 #array_ref = 1 # for local testing
-mod_array_num = array_ref % 10 # This calculates the remainder after diving by 10 (to be used to get release location, ie pick one of 10 ocean zones)
+mod_array_num = array_ref % 19 # This calculates the remainder after diving by 19 (to be used to get release location, ie pick one of 10 ocean zones)
 
 year_array = np.arange(2009, 2019, 1) # make this correspond to model period
 
+# Repeat 19 times (19 ocean zones to release in per year)
+year_array = np.repeat(year_array,19)
+
+
 possible_locations = pd.read_csv("/srv/scratch/z5278054/shared/gmc_possible_locations.csv") # read the points extracted from GEBCO
 #possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/data_processed/gmc_possible_locations.csv") # for local testing
+#possible_locations = pd.read_csv("C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/Simulations/gmc_possible_locations.csv") # for local testing
 
 df = pd.DataFrame(possible_locations) # convert to Pandas dataframe
 
+# make list of the zones
+zones = df['ocean_zone'].unique()
+
 # subset possible locations dataframe (df) to specific ocean zone
+df = df[df['ocean_zone'] == zones[mod_array_num]]
 
-# df = XXXXXXXXXXXX
-
+### I think this next bit could now be tidied up (Don't think we need all the grouping)
 n_locations = df['ocean_zone'].nunique() # number of release locations
 
 # Spawning season is September to March (Heasman et al. 1985), add on a month to ensure release particles have enough time to reach degree-days
@@ -38,6 +47,7 @@ start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
 end_time = datetime(year_array[array_ref]+1, 4, 30) # year, month, day
 runtime = end_time-start_time + delta(days=1)
 
+### Choose the location each day -- I THINK WE CAN DELETE THE groupby('ocean_zone) now
 locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
 #locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = 2).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
 lat = np.repeat(locations["lat"], npart) # repeat every location by the number of particles 
@@ -86,7 +96,7 @@ fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D),
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
 
 # Where to save
-out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_BRAN2015_Forward.nc' # where to save; be sure to change naming for back/forawrd runs
+out_file = str(out_dir)+'/'+str(year_array[array_ref])+'_'+str(zones[mod_array_num])+'_BRAN2015_Forward.nc' # where to save; be sure to change naming for back/forawrd runs
 
 # If output file already exists then remove it
 if os.path.exists(out_file):
