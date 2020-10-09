@@ -50,7 +50,7 @@ zones = df['ocean_zone'].unique()
 
 # This is taken from the .pbs and is the product of the number of years (duration of the model) times the number of zones for particles to be released in
 array_ref = int(os.environ['PBS_ARRAY_INDEX'])
-# This calculates the remainder after diving by 19 (to be used to get release location, ie pick one of 10 ocean zones)
+# This calculates the remainder after diving by the number of release locations ('ocean_zones') you are modelling
 mod_array_num = array_ref % len(zones)  
 # Define the duration of the model (in years) and then repeat it by the number of zones (so there is a job in each zone each year)
 year_array = np.repeat(np.arange(2009, 2019, 1), len(zones))
