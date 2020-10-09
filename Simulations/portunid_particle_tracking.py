@@ -10,12 +10,10 @@ import os
 import math
 import pandas as pd
 
-# Change these lines manually for the run you want to conduct
-# You will need to adjust the .pbs script accordingly so that you run the right number of jobs (i.e. # zones * # years)
-Species = "GMC"
-# Species = "BSC"
-Direction = "forwards"
-#Direction = "backwards"
+# These are specified in the .pbs script for job submission
+Species = os.environ['Species']
+Direction = os.environ['Direction']
+#Model = os.environ['Model']
 Model = "BRAN2015"
 
 out_dir = '/srv/scratch/z5278054/portunid_particle_tracking'
@@ -40,6 +38,9 @@ elif Species == "GMC" and Direction == "backwards":
 elif Species == "BSC" and Direction == "backwards":
     "file directory for BSC backwards releases"
 
+# Local testing
+# possible_locations = pd.read_csv("C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Simulations/gmc_possible_locations.csv")
+
 # Convert possible_locations to a Pandas dataframe
 df = pd.DataFrame(possible_locations) 
 
@@ -56,11 +57,6 @@ year_array = np.repeat(np.arange(2009, 2019, 1), len(zones))
 
 # subset possible locations dataframe (df) to specific ocean zone
 df = df[df['ocean_zone'] == zones[mod_array_num]]
-
-# Delete #
-### I think this next bit could now be tidied up (Don't think we need all the grouping)
-#n_locations = df['ocean_zone'].nunique() # number of release locations
-# Delete #
 
 # Spawning season, add on a month to ensure release particles have enough time to reach degree-days
 # See "portunid_aus_spawning_season_201007.xls"
@@ -84,6 +80,8 @@ runtime = end_time-start_time + delta(days=1)
 locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
 lat = np.repeat(locations["lat"], npart) # repeat every location by the number of particles 
 lon = np.repeat(locations["lon"], npart)
+# Testing to see about passing a custom variable into a particleset
+ocean_zone = np.repeat(locations["ocean_zone"], npart)
 
 # Set up the hydrodynamic model
 filenames = {'U': sorted(glob('/srv/scratch/z5278054/shared/BRAN_2015/Ocean_u_*')), 
@@ -143,6 +141,7 @@ class SampleParticle(JITParticle):
                         initial=0)  # the previous longitude
     prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                         initial=0)  # the previous latitude
+    ocean_zone = Variable('ocean_zone', initial=0)
 
 # Define all the sampling kernels
 def SampleDistance(particle, fieldset, time):
@@ -180,21 +179,20 @@ def SampleInitial(particle, fieldset, time):
          particle.prev_lat = particle.lat
          particle.sampled = 1
 
-# Define when you want tracking to start
-pset_start = (datetime(year_array[array_ref], 9, 1) - datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()  # start of spawning season
-#pset_start = start_time - datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()  # start of spawning season
+# Define when you want tracking to start (i.e. start of the spawning season)
+#pset_start = (datetime(year_array[array_ref], 9, 1) - datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()  # start of spawning season
+pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()
 
-# Create an array of release times (replace "+" with "-" for backwards)
-release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds()) 
-#release_times = pset_start + (np.arange(0, 2) * repeatdt.total_seconds()) # for local testing
-
-#time = np.tile(release_times, n_locations*npart) # duplicate release time for each point and the number of particles per point
-#time = np.tile(np.repeat(release_times, npart), n_locations)
+# Create an array of release times 
+if Direction == "forwards":
+    release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())  # forwards (hence "+" symbol)
+else:
+    release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds()) # backwards (hence "-" symbol)
 
 # Multiply the release times by the number of particles
 time = np.repeat(release_times, npart)
 
-pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=time, lon=lon, lat=lat, repeatdt=None) # repeatdt not used as the list of times is where the repeating is done
+pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=time, lon=lon, lat=lat, ocean_zone=ocean_zone, repeatdt=None) # # repeatdt not used as the list of times is where the repeating is done
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 

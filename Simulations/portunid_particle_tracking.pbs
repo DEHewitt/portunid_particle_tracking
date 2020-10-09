@@ -7,7 +7,6 @@
 #PBS -M daniel.hewitt@unsw.edu.au
 #PBS -m ae
 
- 
 cd $HOME
 
 module purge
@@ -15,7 +14,15 @@ module purge
 module load openmpi/3.1.2
 module load python/3.6.5
 
+# Change these to change species/direction - this will affect -J (above)
+# Species: GMC, BSC
+# Direction: forwards, backwards
+# Model: TBC
+export Species='GMC'
+export Direction='forwards'
+# export Model='ROMS3.4'
+
 source python_parcels/bin/activate
 
-mpirun -n 1 python3 gmc_forward_bran2015.py
+mpirun -n 1 python3 portunid_particle_tracking.py
 
