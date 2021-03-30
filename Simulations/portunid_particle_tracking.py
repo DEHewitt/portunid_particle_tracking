@@ -1,6 +1,6 @@
 #!home/z5278054/python_parcels/bin/python3
 
-from parcels import FieldSet, Field, AdvectionRK4, ParticleSet, JITParticle, Variable, DiffusionUniformKh, random
+from parcels import FieldSet, Field, ParticleSet, JITParticle, Variable, DiffusionUniformKh, random #, AdvectionRK4_3D
 from parcels import ErrorCode
 import numpy as np
 from glob import glob
@@ -11,8 +11,8 @@ import math
 import pandas as pd
 
 # These are specified in the .pbs script for job submission
-species = "gmc"
-direction = "forwards"
+species = os.environ['species']
+direction = os.environ['direction'] 
     
 # Where to save the files based on the input
 out_dir = '/srv/scratch/z5278054/portunid_particle_tracking/'+str(species)+'/'+str(direction)
@@ -23,7 +23,7 @@ if direction == "forwards":
 elif direction == "backwards":
     npart = 10 # to be changed to 100
 
-array_ref = int(os.environ['PBS_ARRAY_INDEX'])
+array_ref = int(os.environ['PBS_ARRAY_INDEX']) # has to equal number of locations * number of years
 
 # How often to release the particles
 repeatdt = delta(days = 1) 
@@ -32,7 +32,6 @@ repeatdt = delta(days = 1)
 if species == "gmc" and direction == "backwards":
     lat = np.repeat([-18.541, -23.850, -25.817, -27.339, -28.165, -28.890, -29.432, -30.864, -31.645, -31.899, -32.193, -32.719, -32.917, -33.578], npart)
     lon = np.repeat([147.848, 152.538, 153.762, 153.636, 153.790, 153.799, 153.736, 153.172, 153.048, 152.946, 152.775, 152.312, 152.045, 151.577], npart)
-    depth = np.repeat([])
 else:    
     possible_locations = pd.read_csv("/srv/scratch/z5278054/portunid_particle_tracking/"+str(species)+"_possible_locations.csv") # either in '.../portunid_particle_tracking/Simulations' or '...data_processed/'
 
@@ -46,8 +45,7 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
     mod_array_num = array_ref % len(zones)
     
 # Define the duration of the model (in years) 
-#year_array = np.arange(2000, 2009, 1) # will need to change once all files are shared (from Mirjam)
-year_array = 2000
+year_array = np.arange(2000, 2019, 1) 
 
 if species == "gmc" and direction == "backwards":
     year_array = year_array
@@ -82,41 +80,42 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
     locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
     lat = np.repeat(locations["lat"], npart) # repeat every location by the number of particles 
     lon = np.repeat(locations["lon"], npart)
-    depth = 
     # Testing to see about passing a custom variable into a particleset
-    #ocean_zone = np.repeat(locations["ocean_zone"], npart)
+    ocean_zone = np.repeat(locations["ocean_zone"], npart)
     
 
 # Set up the hydrodynamic model
-ufiles = sorted(glob('/srv/scratch/z5278054/portunid_particle_tracking/ozroms/ozroms_2000/*'))
+data_path = '/srv/scratch/z5278054/portunid_particle_tracking/ozroms/'
+ufiles = sorted(glob('/srv/scratch/z5278054/portunid_particle_tracking/ozroms/2*'))
 vfiles = ufiles
 wfiles = ufiles
 tfiles = ufiles
-mesh_mask = 'srv/scratch/z5278054/portunid_particle_tracking/ozroms/bathymetry.nc'
+mesh_mask = data_path + 'bathymetry.nc'
 
-filenames = {'U': ufiles,
-             'V': vfiles,
-             'temp': tfiles}#,
-             'bathy': mesh_mask}
+filenames = {'U': {'lon': mesh_mask, 'lat': mesh_mask, 'depth': mesh_mask, 'data': ufiles},
+             'V': {'lon': mesh_mask, 'lat': mesh_mask, 'depth': mesh_mask, 'data': vfiles},
+             'WA': {'lon': mesh_mask, 'lat': mesh_mask, 'depth': mesh_mask, 'data': wfiles},
+             'temp': {'lon': mesh_mask, 'lat': mesh_mask, 'depth': mesh_mask, 'data': tfiles},
+             'bathy': {'lon': mesh_mask, 'lat': mesh_mask, 'depth': mesh_mask, 'data': mesh_mask}}
 
 variables = {'U': 'u',
              'V': 'v',
-             'temp': 'sst'}#,
+             'WA': 'w',
+             'temp': 'sst',
              'bathy': 'h'}
 
 dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'},
-             'V': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'},
-             'temp': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'}}#, # double check when you get the new files
-             'bathy': {'depth': 'depth', 'lon': 'lon', 'lat': 'lat'}} # double check when you get the new files
-
-#indices = {'depth': [1]} # surface
+              'V': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'},
+              'WA': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'},
+              'temp': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'},
+              'bathy': {'lon': 'lon', 'lat': 'lat', 'time': 'time'}}
 
 # Define fieldset
-fieldset = FieldSet.from_netcdf(filenames, variables, dimensions, allow_time_extrapolation = True) #, indices
+fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True) #, indices
 fieldset.add_constant('maxage', 40.*86400)
 fieldset.temp.interp_method = 'nearest'
 
-Kh_zonal = 8.8
+Kh_zonal = 8.8 # following Cetina Heredia et al. (2015, 2019)
 Kh_meridional = Kh_zonal
 
 # Set diffusion constants and add them to the fieldset (units = m/s) - this method is from Peliz et al., 2007 (doi:10.1016/j.jmarsys.2006.11.007)
@@ -128,10 +127,10 @@ Kh_meridional = Kh_zonal
 #Kh_zonal = (turb_dissip_rate**(1/3))*(resolution**(4/3))
 #Kh_meridional = Kh_zonal
 
-size2D = (fieldset.U.grid.ydim, fieldset.U.grid.xdim)
-fieldset.add_field(Field('Kh_zonal', Kh_zonal*np.ones(size2D), 
+size2D = (fieldset.U.grid.ydim, fieldset.U.grid.xdim) # size3D? add: fieldset.U.grid.zdim
+fieldset.add_field(Field('Kh_zonal', Kh_zonal*np.ones(size2D), # size3D?
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
-fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D), 
+fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D), # size3D?
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
 
 # Where to save
@@ -152,24 +151,26 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
         age = Variable('age', dtype=np.float32, initial=0.) # initialise age
         temp = Variable('temp', dtype=np.float32, initial=0)  # initialise temperature
-        #bathy = Variable('bathy', dtype=np.float32, initial=0) # initialise bathymetry
+        bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy) # initialise bathymetry - try changing 0 to fieldset.bathy[particle.lat, particle.lon]
         distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
         prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
                             initial=0)  # the previous longitude
         prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                             initial=0)  # the previous latitude
         ocean_zone = Variable('ocean_zone', initial=0)
+        #depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
 else:
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
         age = Variable('age', dtype=np.float32, initial=0.) # initialise age
         temp = Variable('temp', dtype=np.float32, initial=0)  # initialise temperature
-        #bathy = Variable('bathy', dtype=np.float32, initial=0) # initialise bathymetry
+        bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy) # initialise bathymetry
         distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
         prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
                             initial=0)  # the previous longitude
         prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                             initial=0)  # the previous latitude
+        #depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
         
 # Define all the sampling kernels
 def SampleDistance(particle, fieldset, time):
@@ -193,8 +194,8 @@ def SampleAge(particle, fieldset, time):
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
     
-#def SampleBathy(particle, fieldset, time):
- #   particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
+def SampleBathy(particle, fieldset, time):
+    particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
     
 # Kernel to speed up initialisation by using JIT mode not scipy
 def SampleInitial(particle, fieldset, time): 
@@ -203,6 +204,41 @@ def SampleInitial(particle, fieldset, time):
          particle.prev_lon = particle.lon
          particle.prev_lat = particle.lat
          particle.sampled = 1
+         
+#def SampleParticleDepth(particle, fieldset, time):
+ #   particle.depth_m = particle.bathy*particle.depth
+         
+# create a buoyancy kernel
+def larvalBuoyancy(particle, fieldset, time):
+    surfaceLevel = -0.0166672221875 # surface s-level
+    floatSpeed =  0.0003472221875 # equal to 3 s-levels per day
+    if particle.depth < surfaceLevel:
+        particle.depth += floatSpeed
+        
+def AdvectionRK4_3D_alternative(particle, fieldset, time):
+    """Advection of particles using fourth-order Runge-Kutta integration with vertical velocity independent of vertical grid distortion.
+
+    Function needs to be converted to Kernel object before execution"""
+    (u1, v1) = fieldset.UV[time, particle.depth, particle.lat, particle.lon]
+    w1 = fieldset.WA[time, particle.depth, particle.lat, particle.lon]
+    lon1 = particle.lon + u1*.5*particle.dt
+    lat1 = particle.lat + v1*.5*particle.dt
+    dep1 = particle.depth + w1*.5*particle.dt
+    (u2, v2) = fieldset.UV[time + .5 * particle.dt, dep1, lat1, lon1]
+    w2 = fieldset.WA[time + .5 * particle.dt, dep1, lat1, lon1]
+    lon2 = particle.lon + u2*.5*particle.dt
+    lat2 = particle.lat + v2*.5*particle.dt
+    dep2 = particle.depth + w2*.5*particle.dt
+    (u3, v3) = fieldset.UV[time + .5 * particle.dt, dep2, lat2, lon2]
+    w3 = fieldset.WA[time + .5 * particle.dt, dep2, lat2, lon2]
+    lon3 = particle.lon + u3*particle.dt
+    lat3 = particle.lat + v3*particle.dt
+    dep3 = particle.depth + w3*particle.dt
+    (u4, v4) = fieldset.UV[time + particle.dt, dep3, lat3, lon3]
+    w4 = fieldset.WA[time + particle.dt, dep3, lat3, lon3]
+    particle.lon += (u1 + 2*u2 + 2*u3 + u4) / 6. * particle.dt
+    particle.lat += (v1 + 2*v2 + 2*v3 + v4) / 6. * particle.dt
+    particle.depth += (w1 + 2*w2 + 2*w3 + w4) / 6. * particle.dt
 
 if direction == "forwards":
     # Define when you want tracking to start (i.e. start of the spawning season)
@@ -218,14 +254,27 @@ elif direction == "backwards" and species == "bsc":
     time = np.repeat(release_times, npart)
     
 if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
-    pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, time=time, lon=lon, lat=lat, ocean_zone=ocean_zone, repeatdt=None)   
+    pset = ParticleSet.from_list(fieldset, 
+                                 pclass=SampleParticle, 
+                                 time=time, 
+                                 lon=lon, 
+                                 lat=lat,
+                                 ocean_zone=ocean_zone,
+                                 repeatdt=None,
+                                 depth=np.repeat(fieldset.WA.grid.depth[0], len(lat)))
 else:
-    pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, lon=lon, lat=lat, time = end_time, repeatdt=repeatdt)
+    pset = ParticleSet.from_list(fieldset, 
+                                 pclass=SampleParticle, 
+                                 lon=lon, 
+                                 lat=lat, 
+                                 time = end_time, 
+                                 repeatdt=repeatdt, 
+                                 depth=np.repeat(fieldset.WA.grid.depth[0], len(lat)))
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 # SampleInitial kernel must come first to initialise particles in JIT mode
-kernels = SampleInitial + pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp# + SampleBathy
+kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + larvalBuoyancy
 
 if direction == "forwards":
     pset.execute(kernels, 
@@ -235,10 +284,10 @@ if direction == "forwards":
              runtime = runtime,
              recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
 else:
-        pset.execute(kernels, 
-             dt=-delta(minutes=5), 
-             output_file=pfile, 
-             verbose_progress=True,
-             runtime = runtime,
-             recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
+    pset.execute(kernels, 
+         dt=-delta(minutes=5), 
+         output_file=pfile, 
+         verbose_progress=True,
+         runtime = runtime,
+         recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
 pfile.close()

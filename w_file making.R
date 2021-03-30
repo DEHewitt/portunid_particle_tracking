@@ -33,9 +33,9 @@
 #===========================================================================
 # PART 2.  ADD A NEW VARIABLE TO THE FILE
 #===========================================================================
-setwd("~/GitHub/portunid_particle_tracking")
+setwd("~/srv/scratch/z5278054/portunid_particle_tracking/ozroms/New directory/")
 
-file_list <- list.files(path = "~/GitHub/portunid_particle_tracking/",pattern = ".nc")
+file_list <- list.files(path = "~/srv/scratch/z5278054/portunid_particle_tracking/ozroms/New directory/", pattern = ".nc")
 library(ncdf4)
 
 for(i in 1:length(file_list)){
@@ -45,7 +45,7 @@ for(i in 1:length(file_list)){
 ncid_old <- nc_open(file_list[i], write=TRUE ) # open the files
 #ncid_old
 
-ncvar_put(ncid_old, varid = "vel", vals=rep(0,11615040)) # overwrite the vel field
+ncvar_put(ncid_old, varid = "vel", vals = rep(0, 11615040)) # overwrite the vel field
 ncvar_rename(ncid_old, old_varname = "vel", new_varname = "w") # rename the vel field to w
 nc_sync(ncid_old) # save the changes
 nc_close(ncid_old) # close nc file before opening next one
