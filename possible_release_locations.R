@@ -54,8 +54,8 @@ ggplot() +
              aes(x = lon,
                  y = lat))
 
-write_csv(gmc_final_locations, "C:/Users/Dan/Documents/PhD/Dispersal/data_processed/gmc_possible_locations.csv")
-write_csv(gmc_final_locations, "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Simulations/gmc_possible_locations.csv")
+write_csv(gmc.locations, "C:/Users/Dan/Documents/PhD/Dispersal/data_processed/gmc_possible_locations.csv")
+write_csv(gmc.locations, "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Simulations/gmc_possible_locations.csv")
 
 # bsc
 bsc.locations <- shelf %>%
