@@ -12,8 +12,10 @@ import numpy as np
 from datetime import timedelta as delta
 from os import path
 
-data_path = 'C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/'
-ufiles = sorted(glob('C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/2008*'))
+#data_path = 'C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/'
+#ufiles = sorted(glob('C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/2008*'))
+data_path = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/'
+ufiles = sorted(glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/2008*'))
 vfiles = ufiles
 wfiles = ufiles
 tfiles = ufiles
@@ -38,19 +40,29 @@ dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'
               'bathy': {'lon': 'lon', 'lat': 'lat', 'time': 'time'}}
 
 fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True)
+fieldset.add_constant('maxage', 40.*86400) # 40 days max age
+fieldset.bathy.interp_method = 'nearest'
 
 class SampleParticle(JITParticle): 
     sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
+    age = Variable('age', dtype=np.float32, initial=0.) # initialise age
     #rel_bathy = Variable('rel_bathy', dtype=np.float32, initial=fieldset.bathy)
     bathy = Variable('bathy', dtype=np.float32, initial= 0, to_write = True)
     #sigma = Variable('sigma', dtype = np.float32, initial = fieldset.WA.grid.depth[0])
     depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
+    temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
     
 def SampleBathy(particle, fieldset, time):
     particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
     
 def SampleParticleDepth(particle, fieldset, time):
     particle.depth_m = particle.bathy*particle.depth
+    
+    
+def SampleAge(particle, fieldset, time):
+    particle.age = particle.age + math.fabs(particle.dt/86400)
+    if particle.age > fieldset.maxage:
+        particle.delete()
     
 #def SampleSigma(particle, fieldset, time):
  #   particle.sigma = particle.depth
@@ -60,14 +72,16 @@ def SampleInitial(particle, fieldset, time):
          #particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
          #particle.prev_lon = particle.lon
          #particle.prev_lat = particle.lat
-         particle.bathy = fieldset.bathy
+         particle.bathy = fieldset.bathy[time, particle.depth, particle.lat, particle.lon]
+         particle.temp_m = particle.depth*particle.bathy
+         particle.depth_m = particle.bathy*particle.depth
          particle.sampled = 1
          
 def AdvectionRK4_3D_alternative(particle, fieldset, time):
     """Advection of particles using fourth-order Runge-Kutta integration with vertical velocity independent of vertical grid distortion.
 
     Function needs to be converted to Kernel object before execution"""
-    temp_m = particle.depth*particle.bathy
+    particle.temp_m = particle.depth*particle.bathy
     (u1, v1) = fieldset.UV[time, particle.depth, particle.lat, particle.lon]
     w1 = fieldset.WA[time, particle.depth, particle.lat, particle.lon]
     lon1 = particle.lon + u1*.5*particle.dt
@@ -87,8 +101,14 @@ def AdvectionRK4_3D_alternative(particle, fieldset, time):
     w4 = fieldset.WA[time + particle.dt, dep3, lat3, lon3]
     particle.lon += (u1 + 2*u2 + 2*u3 + u4) / 6. * particle.dt
     particle.lat += (v1 + 2*v2 + 2*v3 + v4) / 6. * particle.dt
-    particle.depth += (w1 + 2*w2 + 2*w3 + w4) / 6. * particle.dt
-    particle.depth = temp_m/particle.bathy
+    #particle.depth += (w1 + 2*w2 + 2*w3 + w4) / 6. * particle.dt
+    #particle.depth = temp_m/particle.bathy
+
+
+def ResetDepth(particle, fieldset, time):
+    if particle.temp_m/particle.bathy < -0.9833334: # forces it above the bottom boundary if needed
+        particle.depth = -0.983333
+    else: particle.depth = particle.temp_m/particle.bathy
 
 #floatSpeed = round(0.0333333/288*3, 7)
 
@@ -103,21 +123,32 @@ def AdvectionRK4_3D_alternative(particle, fieldset, time):
 # create a buoyancy kernel
 def larvalBuoyancy(particle, fieldset, time):
     surfaceLevel = -0.0166672221875 # surface s-level
-    floatSpeed =  (-particle.depth_m/10/288)/particle.bathy # equal to 3 s-levels per day
-    if particle.depth < surfaceLevel:
-        particle.depth += floatSpeed
+    #floatSpeed =  (-particle.depth_m/10/288)/particle.bathy # equal to 3 s-levels per day
+    #if particle.depth < surfaceLevel:
+    #    particle.depth += floatSpeed
+    #age2 = round(particle.age) # to whole numbers
+    age2 = particle.age
+    if age2 <= 10:
+        floatSpeed = (-particle.depth_m/(10-age2))/particle.bathy/288
+        if (particle.depth + floatSpeed >= surfaceLevel):
+            particle.depth = surfaceLevel
+        else: 
+            particle.depth += floatSpeed
+    else: particle.depth= surfaceLevel              
+                      
     
 pset = ParticleSet.from_line(fieldset=fieldset, pclass = SampleParticle,
                              size=10,
                              start=(152.922850, -31.966555),
-                             finish=(152.922850, -31.966555),
+                             finish=(154.922850, -31.966555),
                              time = 0,
                              depth=np.repeat(fieldset.WA.grid.depth[0], 10))
 
-kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleBathy + SampleParticleDepth + larvalBuoyancy
+kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) +SampleAge+ SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy
 pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5))
-pset.execute(kernels, runtime=delta(days = 30), dt=delta(minutes = 5), output_file = pset.ParticleFile("C:/Users/Dan/Documents/PhD/Dispersal/temp/3d_advect.nc", outputdt=delta(days=1)))
+pset.execute(kernels, runtime=delta(days = 12), dt=delta(minutes = 5), output_file = pset.ParticleFile("C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/3d_advect.nc", outputdt=delta(days=1)))
 
-depth_level = 0
-print("Level[%d] depth is: [%g %g]" % (depth_level, fieldset.W.grid.depth[depth_level], fieldset.W.grid.depth[depth_level+1]))
-pset.show(field=fieldset.V, depth_level=depth_level)
+#depth_level = 0
+#print("Level[%d] depth is: [%g %g]" % (depth_level, fieldset.W.grid.depth[depth_level], fieldset.W.grid.depth[depth_level+1]))
+#pset.show()
+#pset
