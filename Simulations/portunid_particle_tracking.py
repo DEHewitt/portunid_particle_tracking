@@ -19,7 +19,7 @@ out_dir = '/srv/scratch/z5278054/portunid_particle_tracking/'+str(species)+'/'+s
 
 # How many particles to release
 if direction == "forwards":
-    npart = 10  # number of particles to be released - to be changed to 1000
+    npart = 10  # to be changed to 1000
 elif direction == "backwards":
     npart = 10 # to be changed to 100
 
@@ -198,7 +198,7 @@ def SampleBathy(particle, fieldset, time):
     particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
     
 # Kernel to speed up initialisation by using JIT mode not scipy
-def SampleInitial(particle, fieldset, time): 
+def SampleInitial(particle, fieldset, time): # do we have to add particle.bathy etc to this to ensure it runs in JIT?
     if particle.sampled == 0:
          particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
          particle.prev_lon = particle.lon
