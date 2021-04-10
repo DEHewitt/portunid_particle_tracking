@@ -118,15 +118,6 @@ fieldset.temp.interp_method = 'nearest'
 Kh_zonal = 8.8 # following Cetina Heredia et al. (2015, 2019)
 Kh_meridional = Kh_zonal
 
-# Set diffusion constants and add them to the fieldset (units = m/s) - this method is from Peliz et al., 2007 (doi:10.1016/j.jmarsys.2006.11.007)
-# set turbulent dissipation rate ('jerk'; m^2/s^-3)
-#turb_dissip_rate = 10**-9
-#across = 4 # across-shore resolution = 4km
-#along = 4 # along-shore resolution = 4km
-#resolution = (across*along)**3 # convert from km to m
-#Kh_zonal = (turb_dissip_rate**(1/3))*(resolution**(4/3))
-#Kh_meridional = Kh_zonal
-
 size2D = (fieldset.U.grid.ydim, fieldset.U.grid.xdim) # size3D? add: fieldset.U.grid.zdim
 fieldset.add_field(Field('Kh_zonal', Kh_zonal*np.ones(size2D), # size3D?
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
@@ -150,27 +141,31 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
         age = Variable('age', dtype=np.float32, initial=0.) # initialise age
+       # ageRise = Variable('ageRise', dtype=np.float32, initial=0.)
         temp = Variable('temp', dtype=np.float32, initial=0)  # initialise temperature
-        bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy) # initialise bathymetry - try changing 0 to fieldset.bathy[particle.lat, particle.lon]
+        bathy = Variable('bathy', dtype=np.float32, initial=0) # initialise bathymetry - try changing 0 to fieldset.bathy[particle.lat, particle.lon]
         distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
         prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
                             initial=0)  # the previous longitude
         prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                             initial=0)  # the previous latitude
         ocean_zone = Variable('ocean_zone', initial=0)
-        #depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
+        depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
+        temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
 else:
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
         age = Variable('age', dtype=np.float32, initial=0.) # initialise age
+       # ageRise = Variable('ageRise', dtype=np.float32, initial=0.)
         temp = Variable('temp', dtype=np.float32, initial=0)  # initialise temperature
-        bathy = Variable('bathy', dtype=np.float32, initial=fieldset.bathy) # initialise bathymetry
+        bathy = Variable('bathy', dtype=np.float32, initial=0) # initialise bathymetry
         distance = Variable('distance', initial=0., dtype=np.float32)  # the distance travelled
         prev_lon = Variable('prev_lon', dtype=np.float32, to_write=False,
                             initial=0)  # the previous longitude
         prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                             initial=0)  # the previous latitude
-        #depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
+        depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
+        temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
         
 # Define all the sampling kernels
 def SampleDistance(particle, fieldset, time):
@@ -186,10 +181,13 @@ def SampleDistance(particle, fieldset, time):
 def DeleteParticle(particle, fieldset, time):
     particle.delete()
     
-def SampleAge(particle, fieldset, time):
-    particle.age = particle.age + math.fabs(particle.dt)
+def SampleAge(particle, fieldset, time): # for deleting particles/recording their age (in days)
+    particle.age = particle.age + math.fabs(particle.dt/86400)
     if particle.age > fieldset.maxage:
         particle.delete()
+        
+#def SampleAgeRise(particle, fieldset, time): # for getting the particles to rise
+ #   particle.ageRise = particle.age + math.fabs(particle.dt/86400)
 
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
@@ -197,28 +195,51 @@ def SampleTemp(particle, fieldset, time):
 def SampleBathy(particle, fieldset, time):
     particle.bathy = fieldset.bathy[0, 0, particle.lat, particle.lon]
     
+def SampleParticleDepth(particle, fieldset, time):
+    particle.depth_m = particle.bathy*particle.depth
+    
 # Kernel to speed up initialisation by using JIT mode not scipy
-def SampleInitial(particle, fieldset, time): # do we have to add particle.bathy etc to this to ensure it runs in JIT?
+def SampleInitial(particle, fieldset, time): # do we have to add particle.age and particle.ageRise
     if particle.sampled == 0:
+         particle.age = particle.age
+         #particle.ageRise = particle.ageRise
          particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
+         particle.bathy = fieldset.bathy[time, particle.depth, particle.lat, particle.lon]
+         particle.distance = particle.distance
          particle.prev_lon = particle.lon
          particle.prev_lat = particle.lat
+         particle.ocean_zone = particle.ocean_zone 
+         particle.depth_m = particle.bathy*particle.depth
+         particle.temp_m = particle.depth*particle.bathy
          particle.sampled = 1
          
-#def SampleParticleDepth(particle, fieldset, time):
- #   particle.depth_m = particle.bathy*particle.depth
-         
-# create a buoyancy kernel
+# kernel to force particles above the bottom boundary if they ever go through it
+def ResetDepth(particle, fieldset, time):
+    if particle.temp_m/particle.bathy < -0.9833334: 
+        particle.depth = -0.983333
+    else: particle.depth = particle.temp_m/particle.bathy
+    
+# kernel to get the particles to float to the surface
 def larvalBuoyancy(particle, fieldset, time):
     surfaceLevel = -0.0166672221875 # surface s-level
-    floatSpeed =  0.0003472221875 # equal to 3 s-levels per day
-    if particle.depth < surfaceLevel:
-        particle.depth += floatSpeed
+    #floatSpeed =  (-particle.depth_m/10/288)/particle.bathy # equal to 3 s-levels per day
+    #if particle.depth < surfaceLevel:
+    #    particle.depth += floatSpeed
+    #age2 = round(particle.age) # to whole numbers
+    age2 = particle.age
+    if age2 <= 10:
+        floatSpeed = (-particle.depth_m/(10-age2))/particle.bathy/288
+        if (particle.depth + floatSpeed >= surfaceLevel):
+            particle.depth = surfaceLevel
+        else: 
+            particle.depth += floatSpeed
+    else: particle.depth= surfaceLevel
         
 def AdvectionRK4_3D_alternative(particle, fieldset, time):
     """Advection of particles using fourth-order Runge-Kutta integration with vertical velocity independent of vertical grid distortion.
 
     Function needs to be converted to Kernel object before execution"""
+    particle.temp_m = particle.depth*particle.bathy
     (u1, v1) = fieldset.UV[time, particle.depth, particle.lat, particle.lon]
     w1 = fieldset.WA[time, particle.depth, particle.lat, particle.lon]
     lon1 = particle.lon + u1*.5*particle.dt
@@ -238,7 +259,8 @@ def AdvectionRK4_3D_alternative(particle, fieldset, time):
     w4 = fieldset.WA[time + particle.dt, dep3, lat3, lon3]
     particle.lon += (u1 + 2*u2 + 2*u3 + u4) / 6. * particle.dt
     particle.lat += (v1 + 2*v2 + 2*v3 + v4) / 6. * particle.dt
-    particle.depth += (w1 + 2*w2 + 2*w3 + w4) / 6. * particle.dt
+    #particle.depth += (w1 + 2*w2 + 2*w3 + w4) / 6. * particle.dt
+    #particle.depth = temp_m/particle.bathy
 
 if direction == "forwards":
     # Define when you want tracking to start (i.e. start of the spawning season)
@@ -274,7 +296,7 @@ else:
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 # SampleInitial kernel must come first to initialise particles in JIT mode
-kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + larvalBuoyancy
+kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy #+ SampleAgeRise
 
 if direction == "forwards":
     pset.execute(kernels, 
