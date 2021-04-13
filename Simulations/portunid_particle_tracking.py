@@ -45,7 +45,7 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
     mod_array_num = array_ref % len(zones)
     
 # Define the duration of the model (in years) 
-year_array = np.arange(2000, 2019, 1) 
+year_array = np.arange(2008, 2015, 1) 
 
 if species == "gmc" and direction == "backwards":
     year_array = year_array
@@ -111,8 +111,8 @@ dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'
               'bathy': {'lon': 'lon', 'lat': 'lat', 'time': 'time'}}
 
 # Define fieldset
-fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True) #, indices
-fieldset.add_constant('maxage', 40.*86400)
+fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True) 
+fieldset.add_constant('maxage', 40.) # changed so that larvalBuoyancy kernel works
 fieldset.temp.interp_method = 'nearest'
 
 Kh_zonal = 8.8 # following Cetina Heredia et al. (2015, 2019)
@@ -152,6 +152,8 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
         ocean_zone = Variable('ocean_zone', initial=0)
         depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
         temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
+        u_vel = Variable('u_vel', dtype = np.float32, initial = 0)
+        v_vel = Variable('v_vel', dtype = np.float32, initial = 0)
 else:
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
@@ -166,6 +168,8 @@ else:
                             initial=0)  # the previous latitude
         depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
         temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
+        u_vel = Variable('u_vel', dtype = np.float32, initial = 0)
+        v_vel = Variable('v_vel', dtype = np.float32, initial = 0)
         
 # Define all the sampling kernels
 def SampleDistance(particle, fieldset, time):
@@ -186,8 +190,14 @@ def SampleAge(particle, fieldset, time): # for deleting particles/recording thei
     if particle.age > fieldset.maxage:
         particle.delete()
         
-#def SampleAgeRise(particle, fieldset, time): # for getting the particles to rise
- #   particle.ageRise = particle.age + math.fabs(particle.dt/86400)
+def SampleVelocities(particle, fieldset, time):
+    particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
+    particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
+    
+def Unbeaching(particle, fieldset, time):
+    if particle.u_vel == 0: # velocity = 0 means particle is on land
+        particle.lon += random.uniform(0.5, 1)
+        
 
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
@@ -211,6 +221,8 @@ def SampleInitial(particle, fieldset, time): # do we have to add particle.age an
          particle.ocean_zone = particle.ocean_zone 
          particle.depth_m = particle.bathy*particle.depth
          particle.temp_m = particle.depth*particle.bathy
+         particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
+         particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
          particle.sampled = 1
          
 # kernel to force particles above the bottom boundary if they ever go through it
@@ -289,16 +301,17 @@ else:
                                  pclass=SampleParticle, 
                                  lon=lon, 
                                  lat=lat, 
-                                 time = end_time, 
+                                 time = end_time, # what?
                                  repeatdt=repeatdt, 
                                  depth=np.repeat(fieldset.WA.grid.depth[0], len(lat)))
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 # SampleInitial kernel must come first to initialise particles in JIT mode
-kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy #+ SampleAgeRise
+kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy + SampleVelocities + Unbeaching
 
 if direction == "forwards":
+    pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5)) # to get initial values for everything
     pset.execute(kernels, 
              dt=delta(minutes=5), 
              output_file=pfile, 
@@ -306,6 +319,7 @@ if direction == "forwards":
              runtime = runtime,
              recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
 else:
+    pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5)) # to get initial values for everything
     pset.execute(kernels, 
          dt=-delta(minutes=5), 
          output_file=pfile, 

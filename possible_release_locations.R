@@ -1,9 +1,12 @@
 library(tidync)
 library(tidyverse)
 library(ggplot2)
+library(rnaturalearth)
+library(sf)
 
 # Load the ozroms bathymetry data
 bathy <- tidync("C:/Users/Dan/Documents/PhD/Dispersal/data_raw/bathymetry.nc") %>% hyper_tibble()
+oz <- ne_states(country = "australia", returnclass = "sf")
 
 head(bathy)
 range(bathy$h)
@@ -15,7 +18,26 @@ ggplot() +
                  y = lat,
                  colour = h))
 
-shelf <- bathy %>% 
+# having an issue with some particles being released on land
+# first subset bathy by selecting only cells that have a velocity
+# this requires loading a velocity file, because those values
+# are stored separate to the bathymetry data
+
+# load a velocities file
+vel.file <- hyper_tibble("C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/20150101.nc")
+# select the non-NaN velocity cells (i.e. the ones that are in the ocean)
+vel.file <- vel.file %>%
+  filter(u != is.nan(u))
+# use that to select from the bathy file
+lon <- unique(vel.file$lon)
+shelf <- data.frame()
+for (i in 1:length(lon)){
+  temp <- bathy %>% filter(lon == lon[i])
+  shelf <- bind_rows(shelf, temp)
+}
+
+shelf <- shelf %>% 
+  # first pass at selecting the shelf
   filter(h < 200 & h > 15) %>%
   # remove shallow areas that aren't on the shelf
   filter(lon < 155) %>%
@@ -30,7 +52,10 @@ ggplot() +
                  y = lat,
                  colour = h)) +
   scale_x_continuous(breaks = seq(145, 155, 1)) +
-  scale_y_continuous(breaks = seq(-15, -38, -1))
+  scale_y_continuous(breaks = seq(-15, -38, -1)) +
+  geom_sf(data = oz) +
+  coord_sf(xlim = c(142, 154), ylim = c(-38, -15))
+  
 
 # set up the ocean_zone column
 ocean_zones <- data.frame(max_lat = seq(-15, -37, by = -1), min_lat = seq(-16, -38, by = -1))

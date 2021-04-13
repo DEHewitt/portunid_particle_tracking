@@ -11,11 +11,13 @@ from glob import glob
 import numpy as np
 from datetime import timedelta as delta
 from os import path
+import math
+from parcels import ErrorCode
 
-#data_path = 'C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/'
-#ufiles = sorted(glob('C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/2008*'))
-data_path = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/'
-ufiles = sorted(glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/2008*'))
+data_path = 'C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/'
+ufiles = sorted(glob('C:/Users/Dan/Documents/PhD/Dispersal/data_raw/ozroms/2*'))
+#data_path = 'C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/'
+#ufiles = sorted(glob('C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/2008*'))
 vfiles = ufiles
 wfiles = ufiles
 tfiles = ufiles
@@ -40,8 +42,10 @@ dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'
               'bathy': {'lon': 'lon', 'lat': 'lat', 'time': 'time'}}
 
 fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True)
-fieldset.add_constant('maxage', 40.*86400) # 40 days max age
+fieldset.add_constant('maxage', 40.) # 40 days max age
 fieldset.bathy.interp_method = 'nearest'
+
+## Attempt to set up eastward land cells##
 
 class SampleParticle(JITParticle): 
     sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
@@ -58,11 +62,16 @@ def SampleBathy(particle, fieldset, time):
 def SampleParticleDepth(particle, fieldset, time):
     particle.depth_m = particle.bathy*particle.depth
     
-    
 def SampleAge(particle, fieldset, time):
     particle.age = particle.age + math.fabs(particle.dt/86400)
-    if particle.age > fieldset.maxage:
-        particle.delete()
+    #if particle.age > fieldset.maxage:
+        #particle.delete()
+        
+def DeleteParticle(particle, fieldset, time):
+    particle.delete()
+
+#def DeleteParticle(particle, fieldset, time):
+ #   particle.delete()
     
 #def SampleSigma(particle, fieldset, time):
  #   particle.sigma = particle.depth
@@ -138,17 +147,36 @@ def larvalBuoyancy(particle, fieldset, time):
                       
     
 pset = ParticleSet.from_line(fieldset=fieldset, pclass = SampleParticle,
-                             size=10,
+                             size=1,
+                             repeatdt = delta(days = 1),
                              start=(152.922850, -31.966555),
-                             finish=(154.922850, -31.966555),
+                             finish=(152.922850, -31.966555),
                              time = 0,
-                             depth=np.repeat(fieldset.WA.grid.depth[0], 10))
+                             depth=np.repeat(fieldset.WA.grid.depth[0], 1))
 
 kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) +SampleAge+ SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy
 pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5))
-pset.execute(kernels, runtime=delta(days = 12), dt=delta(minutes = 5), output_file = pset.ParticleFile("C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/3d_advect.nc", outputdt=delta(days=1)))
+pset.execute(kernels, runtime=delta(days = 365), 
+             dt=delta(minutes = 5),
+             output_file = pset.ParticleFile("C:/Users/Dan/Documents/PhD/Dispersal/temp/3d_advect.nc", 
+                                             outputdt=delta(days=1)),
+             recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
 
 #depth_level = 0
 #print("Level[%d] depth is: [%g %g]" % (depth_level, fieldset.W.grid.depth[depth_level], fieldset.W.grid.depth[depth_level+1]))
 #pset.show()
 #pset
+
+from datetime import datetime as datetime
+start_time = datetime(2008, 9, 1) # year, month, day
+end_time = datetime(2008+1, 5, 30)
+runtime = end_time-start_time
+npart = 10
+repeatdt = delta(days = 1)
+
+# Define when you want tracking to start (i.e. start of the spawning season)
+pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()
+    # Create an array of release times 
+release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())  # can be made to go backwards by changing '+' to '-'
+    # Multiply the release times by the number of particles
+time = np.repeat(release_times, npart)
