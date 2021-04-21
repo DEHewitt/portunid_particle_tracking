@@ -1,0 +1,16 @@
+#!/bin/bash
+ 
+#PBS -l select=1:ncpus=1:mem=120gb
+#PBS -l walltime=11:59:00
+#PBS -j oe
+#PBS -M daniel.hewitt@unsw.edu.au
+#PBS -m ae
+
+export species='gmc'
+export direction='forwards'
+
+module purge
+
+module add R/4.0.2
+
+Rscript portunid_particle_processing.R
