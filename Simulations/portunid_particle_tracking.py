@@ -19,9 +19,9 @@ out_dir = '/srv/scratch/z5278054/portunid_particle_tracking/'+str(species)+'/'+s
 
 # How many particles to release
 if direction == "forwards":
-    npart = 10  # to be changed to 1000
+    npart = 1000  # to be changed to 1000
 elif direction == "backwards":
-    npart = 10 # to be changed to 100
+    npart = 100 # to be changed to 100
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX']) # has to equal number of locations * number of years
 
@@ -195,7 +195,7 @@ def SampleVelocities(particle, fieldset, time):
     particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
     
 def Unbeaching(particle, fieldset, time):
-    if particle.u_vel == 0: # velocity = 0 means particle is on land
+    if particle.u_vel == 0 and particle.v_vel == 0: # velocity = 0 means particle is on land
         particle.lon += random.uniform(0.5, 1)
         
 
