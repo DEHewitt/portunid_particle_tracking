@@ -32,11 +32,14 @@ repeatdt = delta(days = 1)
 if species == "gmc" and direction == "backwards":
     lat = np.repeat([-18.541, -23.850, -25.817, -27.339, -28.165, -28.890, -29.432, -30.864, -31.645, -31.899, -32.193, -32.719, -32.917, -33.578], npart)
     lon = np.repeat([147.848, 152.538, 153.762, 153.636, 153.790, 153.799, 153.736, 153.172, 153.048, 152.946, 152.775, 152.312, 152.045, 151.577], npart)
-else:    
+elif species == "bsc" and direction == "backwards":
+    lat = np.repeat([-25.817, -27.339, -32.193, -32.719, -32.917, -33.578, -34.5457], npart)
+    lon = np.repeat([153.762, 153.636, 152.775, 152.312, 152.045, 151.577, 151.0173], npart)
+else:
     possible_locations = pd.read_csv("/srv/scratch/z5278054/portunid_particle_tracking/"+str(species)+"_possible_locations.csv") # either in '.../portunid_particle_tracking/Simulations' or '...data_processed/'
 
 # Convert possible_locations to a Pandas dataframe
-if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
+if direction == "forwards":
     df = pd.DataFrame(possible_locations) 
     # Make a list of the zones (i.e. 1 degree latitude bands to be released from)
     # These can be anything you want (e.g. a box, a point) 
@@ -47,13 +50,13 @@ if direction == "forwards" and species == "gmc" or species == "bsc" and directio
 # Define the duration of the model (in years) 
 year_array = np.arange(2008, 2015, 1) 
 
-if species == "gmc" and direction == "backwards":
+if direction == "backwards":
     year_array = year_array
 else:
     # repeat the year_array by the number of zones (so there is a job in each zone each year) for the random release method
     year_array = np.repeat(year_array, len(zones))
 
-if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
+if direction == "forwards":
     df = df[df['ocean_zone'] == zones[mod_array_num]] # subset possible locations dataframe (df) to specific ocean zone
 
 # Spawning season, add on a month to ensure release particles have enough time to reach degree-days
@@ -74,7 +77,7 @@ elif species == "bsc" and direction == "backwards":
 runtime = end_time-start_time + delta(days=1)
 
 
-if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
+if direction == "forwards":
     # Randomly choose a new release location for each day of the spawning season
     # Still need the grouping, not sure why - maybe something to do with the apply() function
     locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
@@ -125,10 +128,10 @@ fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D), # size3
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
 
 # Where to save
-if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
+if direction == "forwards":
     out_file = str(out_dir)+'/'+str(species)+'_'+str(year_array[array_ref])+'_'+str(zones[mod_array_num])+'_'+str(direction)+'.nc'
 else:
-    out_file = str(out_dir)+'/'+str(species)+'_'+str(year_array[array_ref])+'_'+str(direction)+'.nc'
+    out_file = str(out_dir)+'/'+str(species)+'_'+str(year_array[array_ref])+'_'+str(direction)+str(array_ref)+'.nc'
 
 # If output file already exists then remove it
 if os.path.exists(out_file):
@@ -137,7 +140,7 @@ if os.path.exists(out_file):
 random.seed(123456) # Set random seed
   
 # Define a new particle class - includes fixes so particles initialise in JIT mode (see SampleInitial kernel below)
-if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
+if direction == "forwards":
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
         age = Variable('age', dtype=np.float32, initial=0.) # initialise age
@@ -195,9 +198,10 @@ def SampleVelocities(particle, fieldset, time):
     particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
     
 def Unbeaching(particle, fieldset, time):
-    if particle.u_vel == 0 and particle.v_vel == 0: # velocity = 0 means particle is on land
+    if particle.age == 0 and particle.u_vel == 0 and particle.v_vel == 0: # velocity = 0 means particle is on land so nudge it eastward
         particle.lon += random.uniform(0.5, 1)
-        
+    elif particle.u_vel == 0 and particle.v_vel == 0: # if a particle is advected on to land delete it
+        particle.delete()
 
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
@@ -281,13 +285,13 @@ if direction == "forwards":
     release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())  # can be made to go backwards by changing '+' to '-'
     # Multiply the release times by the number of particles
     time = np.repeat(release_times, npart)
-elif direction == "backwards" and species == "bsc":
+#elif direction == "backwards" and species == "bsc":
     # This might take some testing give start/end time confusion when going backwards...
-    pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
-    release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())
-    time = np.repeat(release_times, npart)
+  #  pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
+   # release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())
+    #time = np.repeat(release_times, npart)
     
-if direction == "forwards" and species == "gmc" or species == "bsc" and direction == "backwards" or direction == "forwards":
+if direction == "forwards":
     pset = ParticleSet.from_list(fieldset, 
                                  pclass=SampleParticle, 
                                  time=time, 
