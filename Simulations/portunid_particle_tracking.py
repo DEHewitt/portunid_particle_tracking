@@ -39,7 +39,7 @@ else:
     possible_locations = pd.read_csv("/srv/scratch/z5278054/portunid_particle_tracking/"+str(species)+"_possible_locations.csv") # either in '.../portunid_particle_tracking/Simulations' or '...data_processed/'
 
 # Convert possible_locations to a Pandas dataframe
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     df = pd.DataFrame(possible_locations) 
     # Make a list of the zones (i.e. 1 degree latitude bands to be released from)
     # These can be anything you want (e.g. a box, a point) 
@@ -48,22 +48,22 @@ if direction == "forwards":
     mod_array_num = array_ref % len(zones)
     
 # Define the duration of the model (in years) 
-year_array = np.arange(2008, 2015, 1) 
+year_array = np.arange(2008, 2019, 1)  # to be changed out to 2018 once all data is shared by UWA
 
-if direction == "backwards":
+if direction == "backwards" and species == "gmc" or direction == "backwards" and species == "bsc":
     year_array = year_array
 else:
     # repeat the year_array by the number of zones (so there is a job in each zone each year) for the random release method
     year_array = np.repeat(year_array, len(zones))
 
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     df = df[df['ocean_zone'] == zones[mod_array_num]] # subset possible locations dataframe (df) to specific ocean zone
 
 # Spawning season, add on a month to ensure release particles have enough time to reach degree-days
 # See "portunid_aus_spawning_season_201007.xls"
 if species == "gmc" and direction == "forwards":
     start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
-    end_time = datetime(year_array[array_ref]+1, 5, 30) # year, month, day
+    end_time = datetime(year_array[array_ref]+1, 5, 30)
 elif species == "bsc" and direction == "forwards":
     start_time = datetime(year_array[array_ref], 8, 1)
     end_time = datetime(year_array[array_ref]+1, 5, 30)
@@ -73,11 +73,16 @@ elif species == "gmc" and direction == "backwards":
 elif species == "bsc" and direction == "backwards":
     start_time = datetime(year_array[array_ref], 7, 31)
     end_time = datetime(year_array[array_ref]+1, 5, 30)
+elif species == "spanner" and direction == "forwards":
+    start_time = datetime(year_array[array_ref], 10, 1)
+    end_time = datetime(year_array[array_ref]+1, 3, 31)
+elif species == "spanner" and direction == "backwards":
+    start_time = datetime(year_array[array_ref], 9, 30)
+    end_time = datetime(year_array[array_ref]+1, 3, 11)
 
 runtime = end_time-start_time + delta(days=1)
 
-
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     # Randomly choose a new release location for each day of the spawning season
     # Still need the grouping, not sure why - maybe something to do with the apply() function
     locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
@@ -115,7 +120,10 @@ dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'
 
 # Define fieldset
 fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True) 
-fieldset.add_constant('maxage', 40.) # changed so that larvalBuoyancy kernel works
+if species == "gmc" or species == "bsc":
+    fieldset.add_constant('maxage', 40.) # changed so that larvalBuoyancy kernel works
+else:
+    fieldset.add_constant('maxage', 80.) # longer because spanner takes longer to grow
 fieldset.temp.interp_method = 'nearest'
 
 Kh_zonal = 8.8 # following Cetina Heredia et al. (2015, 2019)
@@ -128,7 +136,7 @@ fieldset.add_field(Field('Kh_meridional', Kh_meridional*np.ones(size2D), # size3
                          lon=fieldset.U.grid.lon, lat=fieldset.U.grid.lat, mesh='spherical'))
 
 # Where to save
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     out_file = str(out_dir)+'/'+str(species)+'_'+str(year_array[array_ref])+'_'+str(zones[mod_array_num])+'_'+str(direction)+'.nc'
 else:
     out_file = str(out_dir)+'/'+str(species)+'_'+str(year_array[array_ref])+'_'+str(direction)+str(array_ref)+'.nc'
@@ -140,7 +148,7 @@ if os.path.exists(out_file):
 random.seed(123456) # Set random seed
   
 # Define a new particle class - includes fixes so particles initialise in JIT mode (see SampleInitial kernel below)
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
         age = Variable('age', dtype=np.float32, initial=0.) # initialise age
@@ -213,21 +221,39 @@ def SampleParticleDepth(particle, fieldset, time):
     particle.depth_m = particle.bathy*particle.depth
     
 # Kernel to speed up initialisation by using JIT mode not scipy
-def SampleInitial(particle, fieldset, time): # do we have to add particle.age and particle.ageRise
-    if particle.sampled == 0:
-         particle.age = particle.age
-         #particle.ageRise = particle.ageRise
-         particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
-         particle.bathy = fieldset.bathy[time, particle.depth, particle.lat, particle.lon]
-         particle.distance = particle.distance
-         particle.prev_lon = particle.lon
-         particle.prev_lat = particle.lat
-         particle.ocean_zone = particle.ocean_zone 
-         particle.depth_m = particle.bathy*particle.depth
-         particle.temp_m = particle.depth*particle.bathy
-         particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
-         particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
-         particle.sampled = 1
+if direction == "forwards" or species == "spanner" and direction == "backwards":
+    def SampleInitial(particle, fieldset, time): # do we have to add particle.age and particle.ageRise
+        if particle.sampled == 0:
+            particle.age = particle.age
+            #particle.ageRise = particle.ageRise
+            particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
+            particle.bathy = fieldset.bathy[time, particle.depth, particle.lat, particle.lon]
+            particle.distance = particle.distance
+            particle.prev_lon = particle.lon
+            particle.prev_lat = particle.lat
+            particle.ocean_zone = particle.ocean_zone 
+            particle.depth_m = particle.bathy*particle.depth
+            particle.temp_m = particle.depth*particle.bathy
+            particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
+            particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
+            particle.sampled = 1
+            
+elif direction == "backwards":
+    def SampleInitial(particle, fieldset, time): # do we have to add particle.age and particle.ageRise
+        if particle.sampled == 0:
+            particle.age = particle.age
+            #particle.ageRise = particle.ageRise
+            particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
+            particle.bathy = fieldset.bathy[time, particle.depth, particle.lat, particle.lon]
+            particle.distance = particle.distance
+            particle.prev_lon = particle.lon
+            particle.prev_lat = particle.lat
+           # particle.ocean_zone = particle.ocean_zone 
+            particle.depth_m = particle.bathy*particle.depth
+            particle.temp_m = particle.depth*particle.bathy
+            particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
+            particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
+            particle.sampled = 1
          
 # kernel to force particles above the bottom boundary if they ever go through it
 def ResetDepth(particle, fieldset, time):
@@ -285,13 +311,13 @@ if direction == "forwards":
     release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())  # can be made to go backwards by changing '+' to '-'
     # Multiply the release times by the number of particles
     time = np.repeat(release_times, npart)
-#elif direction == "backwards" and species == "bsc":
+elif direction == "backwards" and species == "spanner":
     # This might take some testing give start/end time confusion when going backwards...
-  #  pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
-   # release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())
-    #time = np.repeat(release_times, npart)
+    pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
+    release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())
+    time = np.repeat(release_times, npart)
     
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     pset = ParticleSet.from_list(fieldset, 
                                  pclass=SampleParticle, 
                                  time=time, 
@@ -314,7 +340,7 @@ pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 # SampleInitial kernel must come first to initialise particles in JIT mode
 kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy + SampleVelocities + Unbeaching
 
-if direction == "forwards":
+if direction == "forwards" or species == "spanner" and direction == "backwards":
     pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5)) # to get initial values for everything
     pset.execute(kernels, 
              dt=delta(minutes=5), 

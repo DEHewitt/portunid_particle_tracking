@@ -13,7 +13,7 @@ file.path <- "../../srv/scratch/z5278054/portunid_particle_tracking"
 
 # empty dfs to store results of each iteration
 # master file that will include everything
-#particles.master <- data.frame()
+# particles.master <- data.frame()
 # subset of master include only final (i.e. settled) positions of particles
 particles.final <- data.frame()
 #files <- "text"
@@ -59,9 +59,19 @@ for (i in 1:length(files)) {
   particles$rel_lon <- na.locf(particles$rel_lon, na.rm = F)
   particles$rel_date <- na.locf(particles$rel_date, na.rm = F)
   
-  # remove any particles spawned after the spawning season ended (after April 30th)
-  particles <- particles %>%
-    filter(month(rel_date) != "5")
+  # remove any particles spawned after the spawning season ended
+  if (species == "gmc" & direction == "forwards"){
+    particles <- particles %>%
+      filter(month(rel_date) != "5")
+  } else if (species == "bsc" & direction == "forwards"){
+    particles <- particles %>%
+      filter(month(rel_date) != "5")
+  } else if (species == "spanner" & direction == "forwards") {
+    particles <- particles %>%
+      filter(month(rel_date) != "2") %>% 
+      filter(month(rel_date) != "3")
+  }
+  # what to do about backwards dates?
   
   # apply degree-days filter
   if (species == "gmc"){
@@ -83,12 +93,12 @@ for (i in 1:length(files)) {
       mutate(dd.cutoff = sample(gmc.dd.dist, 1)) %>%
       mutate(settlement = if_else(degree.days > dd.cutoff & bathy < 200, "settled", "not settled")) %>%
       ungroup()
-  } else {
+  } else if (species == "bsc"){
     # bsc from Bryars & Havenhand (2006), doi:10.1016/j.jembe.2005.09.004
     bsc.init <- 60 # intial number of larvae in experiment
     bsc.survival <- 0.517 # cumulative survival to megalopa
     bsc.n <- round(bsc.init*bsc.survival) # final number of larvae (which I assume mean/se is based on)
-    #bsc.temp <- 25 # experimental temp
+    temp <- 25 # experimental temp
     bsc.mean.days <- 15.3 # mean number of days taken to reach settlement stage
     bsc.95ci.days <- 0.7 # 95% CI of mean
     bsc.se.days <- bsc.95ci.days/1.96
@@ -103,6 +113,15 @@ for (i in 1:length(files)) {
       mutate(dd.cutoff = sample(bsc.dd.dist, 1)) %>%
       mutate(settlement = if_else(degree.days > dd.cutoff & bathy < 200, "settled", "not settled")) %>%
       ungroup()
+  } else if (species == "spanner"){
+    # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
+    # means not given so will have to use a hard cut-off
+    spanner.days <- 41.3
+    temp <- 25
+    particles$dd.cutoff <- spanner.days*temp
+    
+    particles <- particles %>%
+      mutate(settlement = if_else(degree.days > dd.cutoff, "settled", "not settled"))
   }
   
   # apply mortality
@@ -112,9 +131,15 @@ for (i in 1:length(files)) {
       # gmc taken from Nurdiani & Zeng (2007), doi:10.1111/j.1365-2109.2007.01810.x
       gmc.cum.mortality <- 1-gmc.survival # 1 minus survival rate after 21.4 days (mean) 
       m <- 1-exp((1/gmc.mean.days)*log(1-gmc.cum.mortality)) # instantaneous mortality
-    } else {
+    } else if (species == "bsc") {
+      # bsc from Bryars & Havenhand (2006), doi:10.1016/j.jembe.2005.09.004
       bsc.cum.mortality <- 1-bsc.survival
       m <- 1-exp((1/bsc.mean.days)*log(1-bsc.cum.mortality)) # instantaneous mortality
+    } else if (species == "spanner"){
+      # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
+      spanner.survival <- 0.31
+      spanner.cum.mortality <- 1-spanner.survival
+      m <- 1-exp((1/spanner.days)*log(1-spanner.cum.mortality)) # instantaneous mortality
     }
     
     z <- 1-exp(-m) # daily actual mortality
@@ -137,77 +162,92 @@ for (i in 1:length(files)) {
     
     # join the .before and .after dfs back together
     particles <- bind_rows(particles.before, particles.after)
-    if (species == "gmc"){
-      particles <- particles %>%
-        mutate(estuary = case_when(lat < -18.041 & lat > -18.741 ~ "Hinchinbrook Island",
-                                   lat < -23.350 & lat > -24.050 ~ "The Narrows",
-                                   lat < -25.317 & lat > -26.017 ~ "Maryborough/Hervey Bay",
-                                   lat < -26.839 & lat > -27.752 ~ "Moreton Bay",
-                                   lat < -27.752 & lat > -28.8275 ~ "Tweed River",
-                                   lat < -28.8275 & lat > -29.161 ~ "Richmond River",
-                                   lat < -29.161 & lat > -29.632 ~ "Clarence River",
-                                   lat < -30.364 & lat > -31.2545 ~ "Macleay River",
-                                   lat < -31.2545 & lat > -31.772 ~ "Camden Haven",
-                                   lat < -31.772 & lat > -32.046 ~ "Manning River",
-                                   lat < -32.046 & lat > -32.456 ~ "Wallis Lake",
-                                   lat < -32.456 & lat > -32.818 ~ "Port Stephens",
-                                   lat < -32.818 & lat > -33.2475 ~ "Hunter River",
-                                   lat < -34.06185 & lat > -34.7457 ~ "Hawkesbury River")) %>%
-        mutate(state = case_when(lat > -28.16427 ~ "QLD",
-                                 lat < -28.16427 ~ "NSW")) #%>%
-        #mutate(mgmt.zone = case_when())
-    } else {
-      particles <- particles %>%
-        mutate(estuary = case_when(#lat < -18.041 & lat > -18.741 ~ "Hinchinbrook Island",
-          #lat < -23.350 & lat > -24.050 ~ "The Narrows",
-          lat < -25.317 & lat > -26.017 ~ "Maryborough/Hervey Bay",
-          lat < -26.839 & lat > -27.752 ~ "Moreton Bay",
-          #lat < -27.752 & lat > -28.8275 ~ "Tweed River",
-          #lat < -28.8275 & lat > -29.161 ~ "Richmond River",
-          #lat < -29.161 & lat > -29.632 ~ "Clarence River",
-          #lat < -30.364 & lat > -31.2545 ~ "Macleay River",
-          #lat < -31.2545 & lat > -31.772 ~ "Camden Haven",
-          #lat < -31.772 & lat > -32.046 ~ "Manning River",
-          lat < -32.046 & lat > -32.456 ~ "Wallis Lake",
-          lat < -32.456 & lat > -32.818 ~ "Port Stephens",
-          lat < -32.818 & lat > -33.2475 ~ "Hunter River",
-          lat < -34.06185 & lat > -34.7457 ~ "Hawkesbury River",
-          lat < -34.06185 & lat > -34.7457 ~ "Lake Illawarra")) %>%
-        mutate(estuary = if_else(is.na(estuary), "ocean", estuary)) %>%
-        mutate(state = case_when(lat > -28.16427 ~ "QLD",
-                                 lat < -28.16427 ~ "NSW")) #%>%
-        #mutate(mgmt.zone = case_when()) # blue swimmer crab will need this if we want to relate dispersal to coastal catch
-    }
-    #particles.master <- bind_rows(particles.master, particles) # this was taking up too much memory
-    # creat a df of final points for each particle
-    if (species == "gmc"){
-      particles.settled <- particles %>% 
-        group_by(traj) %>% 
-        filter(settlement == "settled" & status == "alive" & estuary != is.na(estuary)) %>% # only select settled, living particles that made it within range of an estuary
-        filter(obs == min(obs)) %>% # only want the first day
-        ungroup()
-      particles.final <- bind_rows(particles.final, particles.settled)
-    } else {
-      particles.settled <- particles %>% 
-        group_by(traj) %>% 
-        filter(settlement == "settled" & status == "alive") %>%
-        filter(obs == min(obs)) %>% 
-        ungroup()
-      particles.final <- bind_rows(particles.final, particles.settled)
-    }
-  } else {
-    # backwards particles
-    #particles.master <- bind_rows(particles.master, particles) this was taking up too much memory
     
-    # creat a df of final points for each particle
-    particles.settled <- particles %>% 
+    # assign particles spatially (i.e. to estuaries, mgmt zones, etc.,)
+    if (species == "gmc"){
+      particles <- particles %>%
+        mutate(estuary = case_when(lat < -18.441 & lat > -18.641 ~ "Hinchinbrook Island",
+                                   lat < -23.750 & lat > -23.950 ~ "The Narrows",
+                                   lat < -25.717 & lat > -25.917 ~ "Maryborough/Hervey Bay",
+                                   lat < -26.239 & lat > -27.439 ~ "Moreton Bay",
+                                   lat < -27.065 & lat > -28.265 ~ "Tweed River",
+                                   lat < -28.790 & lat > -28.990 ~ "Richmond River",
+                                   lat < -29.332 & lat > -29.532 ~ "Clarence River",
+                                   lat < -30.764 & lat > -30.964 ~ "Macleay River",
+                                   lat < -31.545 & lat > -31.745 ~ "Camden Haven",
+                                   lat < -31.799 & lat > -31.999 ~ "Manning River",
+                                   lat < -32.093 & lat > -32.293 ~ "Wallis Lake",
+                                   lat < -32.619 & lat > -32.816 ~ "Port Stephens",
+                                   lat < -32.817 & lat > -33.017 ~ "Hunter River",
+                                   lat < -33.478 & lat > -33.678 ~ "Hawkesbury River")) %>%
+        mutate(state = case_when(lat > -28.16427 ~ "QLD",
+                                 lat < -28.16427 ~ "NSW")) %>%
+        mutate(mgmt.zone = if_else(state == "QLD", "C1", 
+                                   if_else(estuary %in% c("Tweed River", "Richmond River"), "EGF1", 
+                                           if_else(estuary %in% c("Clarence River", "Macleay River"),"EGF2",
+                                                   if_else(estuary == "Camden Haven", "EGF3",
+                                                           if_else(estuary %in% c("Manning River", "Wallis Lake", "Port Stephens", "Hunter River"), "EGF4", 
+                                                                   if_else(estuary == "Hawkesbury River", "EGF5", "FALSE")))))))
+    } else if (species == "bsc"){
+      particles <- particles %>%
+        mutate(estuary = case_when(lat < -25.717 & lat > -25.917 ~ "Maryborough/Hervey Bay",
+                                   lat < -26.239 & lat > -27.439 ~ "Moreton Bay",
+                                   lat < -32.093 & lat > -32.293 ~ "Wallis Lake",
+                                   lat < -32.619 & lat > -32.816 ~ "Port Stephens",
+                                   lat < -32.817 & lat > -33.017 ~ "Hunter River",
+                                   lat < -34.4457 & lat > -34.6457 ~ "Lake Illawarra"))  %>%
+        mutate(state = case_when(lat > -28.16427 ~ "QLD",
+                                 lat < -28.16427 ~ "NSW")) %>%
+        mutate(mgmt.zone = if_else(state == "QLD", "C1",
+                                   if_else(estuary %in% c("Manning River", "Wallis Lake", "Port Stephens", "Hunter River"), "EGF4", 
+                                           if_else(estuary == "Hawkesbury River", "EGF5", 
+                                                   if_else(estuary == "Lake Illawarra", "EGF6", "FALSE")))))
+    } else if (species == "spanner"){
+      particles <- particles %>%
+        mutate(state = case_when(lat > -28.16427 ~ "QLD",
+                                 lat < -28.16427 ~ "NSW")) %>%
+        mutate(region = if_else(lat < -23 & lat > -24, 2,
+                                if_else(lat < -24 & lat > -25, 3,
+                                        if_else(lat < -25 & lat > -26.5, 4,
+                                                if_else(lat < -26.5 & lat > -27.5, 5,
+                                                        if_else(lat < -27.5 & lat > -28.1643, 6,
+                                                                if_else(lat < -28.1643 & lat > -29.428612, 7, 9999)))))))
+      particles.final <- bind_rows(particles.final, particles)    
+    }
+  }
+}
+    
+# create a df of final points for each particle
+if (direction == "forwards"){
+  if (species == "gmc" | species == "bsc"){
+    particles.settled <- particles.final %>% 
       group_by(traj) %>% 
-      filter(settlement == "settled") %>%
+      filter(settlement == "settled" & status == "alive" & estuary != is.na(estuary)) %>% # only select settled, living particles that made it within range of an estuary
+      filter(obs == min(obs)) %>% # only want the first day
+      ungroup()
+  } else if (species == "spanner"){
+    particles.settled <- particles.final %>% 
+      group_by(traj) %>% 
+      filter(settlement == "settled" & status == "alive" & region != is.na(region)) %>%
       filter(obs == min(obs)) %>% 
       ungroup()
-    particles.final <- bind_rows(particles.final, particles.settled)
+  }
+} else if (direction == "backwards"){
+  # backwards particles
+  if (species == "gmc" | species == "bsc"){
+    particles.settled <- particles.final %>% 
+      group_by(traj) %>% 
+      filter(settlement == "settled" & status == "alive") %>%
+      filter(obs == min(obs)) %>% 
+      ungroup()
+  } else if (species == "spanner"){
+    particles.settled <- particles.final %>% 
+      group_by(traj) %>% 
+      filter(settlement == "settled" & status == "alive" & region != is.na(region)) %>%
+      filter(obs == min(obs)) %>% 
+      ungroup()
   }
 }
 
-#saveRDS(particles.master, file = paste(file.path, species, direction, "processed", paste(species, direction, "master.rds", sep = "_"), sep = "/"))
 saveRDS(particles.final, file = paste(file.path, species, direction, "processed", paste(species, direction, "final_points.rds", sep = "_"), sep = "/"))
+saveRDS(particles.settled, file = paste(file.path, species, direction, "processed", paste(species, direction, "settled.rds", sep = "_"), sep = "/"))

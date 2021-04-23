@@ -1,16 +1,16 @@
-estuary,gmc,bsc,state,mgmt.zone,lat,lon,northern.diff,northern.limit,southern.diff,southern.limit,overlap
-Hinchinbrook Island,yes,no,QLD,,-18.541,147.848,NA,-18.041,5.309,-18.741,good work
-The Narrows,yes,no,QLD,,-23.85,152.538,5.309,-23.35,1.967,-24.05,good work
-Maryborough,yes,yes,QLD,,-25.817,153.762,1.967,-25.317,1.522,-26.017,good work
-Moreton Bay,yes,yes,QLD,,-27.339,153.636,1.522,-26.839,0.826,-27.752,good work
-Tweed River,yes,no,NSW,1,-28.165,153.79,0.826,-27.752,0.725,-28.5275,good work
-Richmond River,yes,no,NSW,1,-28.89,153.799,0.725,-28.5275,0.542,-29.161,good work
-Clarence River,yes,no,NSW,2,-29.432,153.736,0.542,-29.161,1.432,-29.632,good work
-Macleay River,yes,no,NSW,3,-30.864,153.172,1.432,-30.364,0.781,-31.2545,good work
-Camden Haven,yes,no,NSW,4,-31.645,153.048,0.781,-31.2545,0.254,-31.772,good work
-Manning River,yes,no,NSW,4,-31.899,152.946,0.254,-31.772,0.294,-32.046,good work
-Wallis Lake,yes,yes,NSW,5,-32.193,152.775,0.294,-32.046,0.526,-32.456,good work
-Port Stephens,yes,yes,NSW,5,-32.719,152.312,0.526,-32.456,0.198,-32.818,good work
-Hunter River,yes,yes,NSW,5,-32.917,152.045,0.198,-32.818,0.661,-33.2475,good work
-Hawkesbury River,yes,yes,NSW,6,-33.578,151.577,0.661,-33.2475,0.9677,-34.06185,good work
-Lake Illawarra,no,yes,NSW,6,-34.5457,151.0173,0.9677,-34.06185,NA,-34.7457,good work
+estuary,species,state,mgmt.zone,lat,northern.diff,northern.limit,southern.diff,southern.limit,overlap
+Hinchinbrook Island,gmc,QLD,,-18.541,NA,-18.441,5.309,-18.641,good work
+The Narrows,gmc,QLD,,-23.85,5.309,-23.75,1.967,-23.95,good work
+Maryborough,both,QLD,,-25.817,1.967,-25.717,1.522,-25.917,good work
+Moreton Bay,both,QLD,,-27.339,1.522,-27.239,0.826,-27.439,good work
+Tweed River,gmc,NSW,1,-28.165,0.826,-28.065,0.725,-28.265,good work
+Richmond River,gmc,NSW,1,-28.89,0.725,-28.79,0.542,-28.99,good work
+Clarence River,gmc,NSW,2,-29.432,0.542,-29.332,1.432,-29.532,good work
+Macleay River,gmc,NSW,3,-30.864,1.432,-30.764,0.781,-30.964,good work
+Camden Haven,gmc,NSW,4,-31.645,0.781,-31.545,0.254,-31.745,good work
+Manning River,gmc,NSW,4,-31.899,0.254,-31.799,0.294,-31.999,good work
+Wallis Lake,both,NSW,5,-32.193,0.294,-32.093,0.526,-32.293,good work
+Port Stephens,both,NSW,5,-32.719,0.526,-32.619,0.198,-32.816,good work
+Hunter River,both,NSW,5,-32.917,0.198,-32.817,0.661,-33.017,good work
+Hawkesbury River,both,NSW,6,-33.578,0.661,-33.478,0.9677,-33.678,good work
+Lake Illawarra,BSC,NSW,6,-34.5457,0.9677,-34.4457,NA,-34.6457,good work

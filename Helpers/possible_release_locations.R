@@ -119,4 +119,4 @@ ggplot() +
   coord_sf(xlim = c(150, 154), ylim = c(-29.5, -23))
   
 write_csv(spanner.locations, "C:/Users/Dan/Documents/PhD/Dispersal/data_processed/spanner_possible_locations.csv")
-write_csv(spanner.locations, "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Simulations/spanner_possible_locations.csv")
+write_csv(spanner.locations, "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Data/spanner_possible_locations.csv")

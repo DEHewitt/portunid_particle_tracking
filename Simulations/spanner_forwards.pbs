@@ -3,7 +3,7 @@
 #PBS -l select=1:ncpus=2:mem=10gb:mpiprocs=2
 #PBS -l walltime=12:00:00
 #PBS -j oe
-#PBS -J 0-189
+#PBS -J 0-59
 #PBS -M daniel.hewitt@unsw.edu.au
 #PBS -m ae
 
@@ -14,7 +14,7 @@ module purge
 module load openmpi/3.1.2
 module load python/3.6.5
 
-export species='gmc'
+export species='spanner'
 export direction='forwards'
 
 source python_parcels/bin/activate
