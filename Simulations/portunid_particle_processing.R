@@ -4,28 +4,38 @@ library(tidync)
 library(ncdf4)
 library(zoo)
 
-# import variables from .pbs
-species <- Sys.getenv("species")
-direction <- Sys.getenv("direction")
-
-# point to the portunid_tracking directory
-file.path <- "../../srv/scratch/z5278054/portunid_particle_tracking"
+if (Sys.info()[6] == "Dan"){
+  species <- "gmc"
+  direction <- "forwards"
+  file.path <- "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Data/output_testing"
+  files <- list.files(file.path, pattern = ".nc")
+} else {
+  # import variables from .pbs
+  species <- Sys.getenv("species")
+  direction <- Sys.getenv("direction")
+  
+  # point to the portunid_tracking directory
+  file.path <- "../../srv/scratch/z5278054/portunid_particle_tracking"
+  
+  # list all the files in the relevant directory
+  files <- list.files(paste(file.path, species, direction, sep = "/"), pattern = ".nc")
+}
 
 # empty dfs to store results of each iteration
 # master file that will include everything
 # particles.master <- data.frame()
 # subset of master include only final (i.e. settled) positions of particles
 particles.final <- data.frame()
-#files <- "text"
-# list all the files in the relevant directory
-files <- list.files(paste(file.path, species, direction, sep = "/"), pattern = ".nc")
+
 for (i in 1:length(files)) {
   # load the data
-  particles <- hyper_tibble(paste(file.path, species, direction, files[i], sep = "/"))
-  particles.info <- nc_open(paste(file.path, species, direction, files[i], sep = "/"))
-  
-  #particles <- hyper_tibble('C:/Users/Dan/Documents/PhD/Dispersal/temp/gmc_2013_3_forwards.nc')
-  #particles.info <- nc_open('C:/Users/Dan/Documents/PhD/Dispersal/temp/gmc_2013_3_forwards.nc')
+  if (Sys.info()[6] == "Dan"){
+    particles <- hyper_tibble(paste(file.path, files[i], sep = "/"))
+    particles.info <- nc_open(paste(file.path, files[i], sep = "/"))
+  } else {
+    particles <- hyper_tibble(paste(file.path, species, direction, files[i], sep = "/"))
+    particles.info <- nc_open(paste(file.path, species, direction, files[i], sep = "/"))
+  }
   
   # extract the time.origin
   time.origin <- ymd(str_sub(particles.info$var$time$units, 15, 24))
@@ -34,7 +44,8 @@ for (i in 1:length(files)) {
   particles <- particles %>%
     mutate(date = time.origin + duration(time, units = "seconds"))
   
-  particles <- particles %>% # remove columns that are unused
+  # remove columns that are unused
+  particles <- particles %>% 
     select(-trajectory, -time, -z, -age, -depth_m)
   
   # back fill missing temperature values
@@ -42,12 +53,13 @@ for (i in 1:length(files)) {
   particles$temp <- na.locf(particles$temp, na.rm=FALSE) # replace NA with last non-NA observation carried forward
   particles$temp <- na.locf(particles$temp, na.rm=FALSE, fromLast = TRUE)
   
-  # calculate temperature values
+  # calculate degree-days for each particle
   particles <- particles %>% 
     group_by(traj) %>% 
     mutate(degree.days = cumsum(temp)) %>%
     ungroup() %>%
-    select(-temp) # remove temp now that it isn't being used
+    # remove temp now that it isn't being used
+    select(-temp) 
   
   # assign release location (lat & lon) and date
   particles <- particles %>%
@@ -60,10 +72,7 @@ for (i in 1:length(files)) {
   particles$rel_date <- na.locf(particles$rel_date, na.rm = F)
   
   # remove any particles spawned after the spawning season ended
-  if (species == "gmc" & direction == "forwards"){
-    particles <- particles %>%
-      filter(month(rel_date) != "5")
-  } else if (species == "bsc" & direction == "forwards"){
+  if (species == "gmc" & direction == "forwards" | species == "bsc" & direction == "forwards"){
     particles <- particles %>%
       filter(month(rel_date) != "5")
   } else if (species == "spanner" & direction == "forwards") {
@@ -76,17 +85,27 @@ for (i in 1:length(files)) {
   # apply degree-days filter
   if (species == "gmc"){
     # gmc  from Nurdiani & Zeng (2007), doi:10.1111/j.1365-2109.2007.01810.x
-    gmc.init <- 75 # intial number of larvae in experiment
-    gmc.survival <- 0.547 # cumulative survival to megalopa
-    gmc.n <- round(gmc.init*gmc.survival) # final number of larvae (which I assume mean/se is based on)
-    temp <- 25 # experimental temp
-    gmc.mean.days <- 21.4 # mean number of days taken to reach settlement stage
-    gmc.se.days <- 0.2 # standard error of mean
-    gmc.sd.days <- gmc.se.days*sqrt(gmc.n) # convert to sd for sgenerating normal dist.
+    # intial number of larvae in experiment
+    gmc.init <- 75 
+    # cumulative survival to megalopa
+    gmc.survival <- 0.547 
+    # final number of larvae (which I assume mean/se is based on)
+    gmc.n <- round(gmc.init*gmc.survival)
+    # experimental temp
+    temp <- 25 
+    # mean number of days taken to reach settlement stage
+    gmc.mean.days <- 21.4
+    # standard error of mean
+    gmc.se.days <- 0.2
+    # convert to sd for sgenerating normal dist.
+    gmc.sd.days <- gmc.se.days*sqrt(gmc.n) 
     
-    gmc.dd.mean <- gmc.mean.days*temp # mean degree days
-    gmc.dd.sd <- gmc.sd.days*temp # sd of degree days
-    gmc.dd.dist <- rnorm(n = 10000, mean = gmc.dd.mean, sd = gmc.dd.sd) # normal distribution
+    # mean degree days
+    gmc.dd.mean <- gmc.mean.days*temp
+    # sd of degree days
+    gmc.dd.sd <- gmc.sd.days*temp 
+    # normal distribution to sample dd cutoff from for each particles
+    gmc.dd.dist <- rnorm(n = 10000, mean = gmc.dd.mean, sd = gmc.dd.sd) 
     
     particles <- particles %>%
       group_by(traj) %>%
@@ -95,18 +114,29 @@ for (i in 1:length(files)) {
       ungroup()
   } else if (species == "bsc"){
     # bsc from Bryars & Havenhand (2006), doi:10.1016/j.jembe.2005.09.004
-    bsc.init <- 60 # intial number of larvae in experiment
-    bsc.survival <- 0.517 # cumulative survival to megalopa
-    bsc.n <- round(bsc.init*bsc.survival) # final number of larvae (which I assume mean/se is based on)
-    temp <- 25 # experimental temp
-    bsc.mean.days <- 15.3 # mean number of days taken to reach settlement stage
-    bsc.95ci.days <- 0.7 # 95% CI of mean
+    # intial number of larvae in experiment
+    bsc.init <- 60 
+    # cumulative survival to megalopa
+    bsc.survival <- 0.517 
+    # final number of larvae (which I assume mean/se is based on)
+    bsc.n <- round(bsc.init*bsc.survival) 
+    # experimental temp
+    temp <- 25 
+    # mean number of days taken to reach settlement stage
+    bsc.mean.days <- 15.3 
+    # 95% CI of mean
+    bsc.95ci.days <- 0.7
+    # se
     bsc.se.days <- bsc.95ci.days/1.96
+    # sd
     bsc.sd.days <- bsc.se.days*sqrt(bsc.n) # convert to sd for generating normal dist.
     
-    bsc.dd.mean <- bsc.mean.days*temp # mean degree days
-    bsc.dd.sd <- bsc.sd.days*temp # sd of degree days
-    bsc.dd.dist <- rnorm(n = 10000, mean = bsc.dd.mean, sd = bsc.dd.sd) # normal distribution
+    # mean degree days
+    bsc.dd.mean <- bsc.mean.days*temp 
+    # sd of degree days
+    bsc.dd.sd <- bsc.sd.days*temp 
+    # normal distribution
+    bsc.dd.dist <- rnorm(n = 10000, mean = bsc.dd.mean, sd = bsc.dd.sd) 
     
     particles <- particles %>%
       group_by(traj) %>%
@@ -126,11 +156,14 @@ for (i in 1:length(files)) {
   
   # apply mortality
   if (direction == "forwards"){
-    particles$status <- "alive" # label all particles as alive
+    # label all particles as alive
+    particles$status <- "alive" 
     if (species == "gmc"){
-      # gmc taken from Nurdiani & Zeng (2007), doi:10.1111/j.1365-2109.2007.01810.x
-      gmc.cum.mortality <- 1-gmc.survival # 1 minus survival rate after 21.4 days (mean) 
-      m <- 1-exp((1/gmc.mean.days)*log(1-gmc.cum.mortality)) # instantaneous mortality
+      # cumulative mortality
+      # 1 minus survival rate after 21.4 days (mean)
+      gmc.cum.mortality <- 1-gmc.survival  
+      # instantaneous mortality
+      m <- 1-exp((1/gmc.mean.days)*log(1-gmc.cum.mortality)) 
     } else if (species == "bsc") {
       # bsc from Bryars & Havenhand (2006), doi:10.1016/j.jembe.2005.09.004
       bsc.cum.mortality <- 1-bsc.survival
@@ -142,21 +175,35 @@ for (i in 1:length(files)) {
       m <- 1-exp((1/spanner.days)*log(1-spanner.cum.mortality)) # instantaneous mortality
     }
     
-    z <- 1-exp(-m) # daily actual mortality
+    # convert to actual daily mortality
+    if (Sys.info()[6] == "Dan"){
+      # just so testing on small datasets works
+      z <- 0.2
+    } else {
+      # actul daily mortality
+      z <- 1-exp(-m)
+    }
     
-    min.settle <- round(min(particles$dd.cutoff)/temp) # minimum number of days before a particle could settle (based on degree days)
+    # minimum number of days before a particle could settle (based on degree days)
+    min.settle <- round(min(particles$dd.cutoff)/temp)
+    # data from before particles begin to settle
     particles.before <- particles %>% filter(obs < min.settle)
+    # data from after particles begin to settle
     particles.after <- particles %>% filter(obs > min.settle-1)
     
+    # daily cohorts
     cohorts <- unique(particles.after$rel_date)
     
     for (j in cohorts) {
       cohort <- particles %>% filter(rel_date == j)
       for (i in min.settle:max(cohort$obs)) {
+        # which particles are alive and haven't settled (i.e. reach their DD)
         alive.particles <- cohort %>% filter(obs == i & status == "alive" & settlement == "not settled")
         particle.list <- as.data.frame(unique(alive.particles$traj))
+        # select the particles to die
         die <- sample_frac(particle.list, size = z)
-        particles.after$status[particles.after$obs >= i & particles.after$traj %in% die$`unique(alive.particles$traj)`] <- "dead" # label particles as dead
+        # label particles as dead
+        particles.after$status[particles.after$obs >= i & particles.after$traj %in% die$`unique(alive.particles$traj)`] <- "dead" 
       }
     }
     
@@ -212,9 +259,9 @@ for (i in 1:length(files)) {
                                                 if_else(lat < -26.5 & lat > -27.5, 5,
                                                         if_else(lat < -27.5 & lat > -28.1643, 6,
                                                                 if_else(lat < -28.1643 & lat > -29.428612, 7, 9999)))))))
-      particles.final <- bind_rows(particles.final, particles)    
     }
   }
+  particles.final <- bind_rows(particles.final, particles)
 }
     
 # create a df of final points for each particle
@@ -222,7 +269,8 @@ if (direction == "forwards"){
   if (species == "gmc" | species == "bsc"){
     particles.settled <- particles.final %>% 
       group_by(traj) %>% 
-      filter(settlement == "settled" & status == "alive" & estuary != is.na(estuary)) %>% # only select settled, living particles that made it within range of an estuary
+      # only select settled, living particles that made it within range of an estuary
+      filter(settlement == "settled" & status == "alive" & estuary != is.na(estuary)) %>% 
       filter(obs == min(obs)) %>% # only want the first day
       ungroup()
   } else if (species == "spanner"){
@@ -249,5 +297,6 @@ if (direction == "forwards"){
   }
 }
 
+# save the output
 saveRDS(particles.final, file = paste(file.path, species, direction, "processed", paste(species, direction, "final_points.rds", sep = "_"), sep = "/"))
 saveRDS(particles.settled, file = paste(file.path, species, direction, "processed", paste(species, direction, "settled.rds", sep = "_"), sep = "/"))
