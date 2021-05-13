@@ -121,7 +121,7 @@ dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'
 # Define fieldset
 fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True) 
 if species == "gmc" or species == "bsc":
-    fieldset.add_constant('maxage', 40.) # changed so that larvalBuoyancy kernel works
+    fieldset.add_constant('maxage', 80.) # changed so that larvalBuoyancy kernel works
 else:
     fieldset.add_constant('maxage', 80.) # longer because spanner takes longer to grow
 fieldset.temp.interp_method = 'nearest'
