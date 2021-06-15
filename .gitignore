@@ -1,5 +1,7 @@
-BRAN/Output/*
 .spyp*
 Nesting/Output/*
 Nesting/ROMS Data/*
 *.DS_Store
+BRAN_2020/AUS/Ocean*
+BRAN_2020/AUS/grid*
+BRAN_2020/Output/*
