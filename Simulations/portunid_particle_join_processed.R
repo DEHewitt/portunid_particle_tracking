@@ -22,4 +22,4 @@ for (i in 1:length(files)){
   particles <- bind_rows(particles, temp)
 }
 
-saveRDS(particles, paste(file.path, "master_final.rds", sep = "/"))
+saveRDS(particles, paste(file.path, paste(species, direction, "master_final.rds", sep = "_"), sep = "/"))

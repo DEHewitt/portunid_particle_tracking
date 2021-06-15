@@ -48,7 +48,7 @@ if direction == "forwards" or species == "spanner" and direction == "backwards":
     mod_array_num = array_ref % len(zones)
     
 # Define the duration of the model (in years) 
-year_array = np.arange(2008, 2019, 1)  # to be changed out to 2018 once all data is shared by UWA
+year_array = np.arange(2008, 2018, 1)  # to be changed out to 2018 once all data is shared by UWA
 
 if direction == "backwards" and species == "gmc" or direction == "backwards" and species == "bsc":
     year_array = year_array
@@ -65,14 +65,14 @@ if species == "gmc" and direction == "forwards":
     start_time = datetime(year_array[array_ref], 9, 1) # year, month, day
     end_time = datetime(year_array[array_ref]+1, 5, 30)
 elif species == "bsc" and direction == "forwards":
-    start_time = datetime(year_array[array_ref], 8, 1)
+    start_time = datetime(year_array[array_ref], 9, 1)
     end_time = datetime(year_array[array_ref]+1, 5, 30)
 elif species == "gmc" and direction == "backwards":
-    start_time = datetime(year_array[array_ref], 8, 30)
-    end_time = datetime(year_array[array_ref]+1, 5, 10)
+    start_time = datetime(year_array[array_ref], 9, 1)
+    end_time = datetime(year_array[array_ref]+1, 5, 31)
 elif species == "bsc" and direction == "backwards":
-    start_time = datetime(year_array[array_ref], 7, 31)
-    end_time = datetime(year_array[array_ref]+1, 5, 30)
+    start_time = datetime(year_array[array_ref], 9, 1)
+    end_time = datetime(year_array[array_ref]+1, 5, 31)
 elif species == "spanner" and direction == "forwards":
     start_time = datetime(year_array[array_ref], 10, 1)
     end_time = datetime(year_array[array_ref]+1, 3, 31)
@@ -119,11 +119,11 @@ dimensions = {'U': {'lon': 'lon', 'lat': 'lat', 'depth': 'depth', 'time': 'time'
               'bathy': {'lon': 'lon', 'lat': 'lat', 'time': 'time'}}
 
 # Define fieldset
-fieldset = FieldSet.from_nemo(filenames, variables, dimensions, allow_time_extrapolation = True) 
+fieldset = FieldSet.from_netcdf(filenames, variables, dimensions, allow_time_extrapolation = True) 
 if species == "gmc" or species == "bsc":
-    fieldset.add_constant('maxage', 80.) # changed so that larvalBuoyancy kernel works
+    fieldset.add_constant('maxage', 40.) # changed so that larvalBuoyancy kernel works
 else:
-    fieldset.add_constant('maxage', 80.) # longer because spanner takes longer to grow
+    fieldset.add_constant('maxage', 40.) # longer because spanner takes longer to grow
 fieldset.temp.interp_method = 'nearest'
 
 Kh_zonal = 8.8 # following Cetina Heredia et al. (2015, 2019)
@@ -308,12 +308,12 @@ if direction == "forwards":
     # Define when you want tracking to start (i.e. start of the spawning season)
     pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()
     # Create an array of release times 
-    release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())  # can be made to go backwards by changing '+' to '-'
+    release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())  
     # Multiply the release times by the number of particles
     time = np.repeat(release_times, npart)
 elif direction == "backwards" and species == "spanner":
     # This might take some testing give start/end time confusion when going backwards...
-    pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
+    pset_start = (end_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
     release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())
     time = np.repeat(release_times, npart)
     
@@ -340,7 +340,7 @@ pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 # SampleInitial kernel must come first to initialise particles in JIT mode
 kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy + SampleVelocities + Unbeaching
 
-if direction == "forwards" or species == "spanner" and direction == "backwards":
+if direction == "forwards": #or species == "spanner" and direction == "backwards": 
     pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5)) # to get initial values for everything
     pset.execute(kernels, 
              dt=delta(minutes=5), 
@@ -349,7 +349,7 @@ if direction == "forwards" or species == "spanner" and direction == "backwards":
              runtime = runtime,
              recovery={ErrorCode.ErrorOutOfBounds: DeleteParticle})
 else:
-    pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5)) # to get initial values for everything
+    pset.execute(kernels, runtime=delta(days = 0), dt=-delta(minutes = 5)) # to get initial values for everything
     pset.execute(kernels, 
          dt=-delta(minutes=5), 
          output_file=pfile, 

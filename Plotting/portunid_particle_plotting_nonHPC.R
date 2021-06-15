@@ -554,3 +554,40 @@ ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_dd_example.jpeg",
        height = 15, 
        units = "cm", 
        dpi = 300) 
+
+# mortality example
+mortality <- data.frame(day = seq(0, 39, 1), init.n.part = rep(1000, 40))
+
+mortality <- mortality %>%
+  mutate(deg.day25 = day*25) %>%
+  #mutate(deg.day18 = day*18) %>%
+  mutate(n.part25 = if_else(deg.day25 > 535, round(init.n.part*(1-0.027)^(day-21)), init.n.part))# %>%
+  #mutate(n.part18 = if_else(deg.day18 > 535, round(init.n.part*(1-0.027)^(day-29)), init.n.part))
+
+mortality.plot <- ggplot() +
+  geom_line(data = mortality,
+            aes(x = day,
+                y = n.part25),
+            size = 1) +
+  #geom_line(data = mortality,
+   #         aes(x = day,
+    #            y = n.part18+2),
+     #       colour = "blue",
+      #      size = 1) +
+  geom_vline(aes(xintercept = 21), linetype = "dashed", size = 1) +
+  #geom_vline(aes(xintercept = 29), colour = "blue", linetype = "dashed", size = 1) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 12, colour = "black"),
+        axis.text = element_text(size = 12, colour = "black")) +
+  xlab("Particle age (days)") +
+  ylab("Number of particles")
+  
+ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_mort_example.png", 
+       plot = mortality.plot, 
+       device = "png", 
+       width = 20, # a4 dimensions
+       height = 15, 
+       units = "cm", 
+       dpi = 600) 
+                     
