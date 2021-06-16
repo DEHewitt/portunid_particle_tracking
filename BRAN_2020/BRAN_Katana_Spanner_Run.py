@@ -76,7 +76,7 @@ df = df[df['ocean_zone'] == zones[mod_array_num]] # subset possible locations da
 
 ### Need to update this for Katana
 start_time = datetime(year_array[array_ref],10, 1)
-end_time = datetime(year_array[array_ref]+1,3, 31)  #year, month, day,
+end_time = datetime(year_array[array_ref]+1,4, 30)  #year, month, day,
 
 runtime = end_time-start_time + delta(days=1)
 
@@ -112,7 +112,7 @@ Kh_meridional = 8.8
 # Make fieldset
 fieldset = FieldSet.from_netcdf(filenames, variables, dimensions, allow_time_extrapolation = True)
 
-fieldset.add_constant('maxage', 40.*86400)
+fieldset.add_constant('maxage', 60.*86400)
 fieldset.temp.interp_method = 'nearest'
 
 
