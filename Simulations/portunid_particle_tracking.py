@@ -308,13 +308,13 @@ if direction == "forwards":
     # Define when you want tracking to start (i.e. start of the spawning season)
     pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds()
     # Create an array of release times 
-    release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())  
+    release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())  
     # Multiply the release times by the number of particles
     time = np.repeat(release_times, npart)
 elif direction == "backwards" and species == "spanner":
     # This might take some testing give start/end time confusion when going backwards...
     pset_start = (end_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
-    release_times = pset_start - (np.arange(0, runtime.days) * repeatdt.total_seconds())
+    release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())
     time = np.repeat(release_times, npart)
     
 if direction == "forwards" or species == "spanner" and direction == "backwards":

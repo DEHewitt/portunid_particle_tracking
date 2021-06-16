@@ -1,5 +1,4 @@
 settlement_locations <- function(data){
-  if (direction == "forwards"){
     if (species == "gmc"){
       data <- data %>%
         mutate(estuary = case_when(lat < -18.441 & lat > -18.641 ~ "Hinchinbrook Island",
@@ -49,5 +48,5 @@ settlement_locations <- function(data){
                                                         if_else(lat < -27.5 & lat > -28.1643, 6,
                                                                 if_else(lat < -28.1643 & lat > -29.428612, 7, NA_real_)))))))
     }
-  }
 }
+

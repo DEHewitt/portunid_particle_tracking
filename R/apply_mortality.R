@@ -1,5 +1,4 @@
 apply_mortality <- function(data){
-  if (direction == "forwards"){
     # label all particles as alive
     data$status <- "alive" 
     if (species == "gmc"){
@@ -61,5 +60,5 @@ apply_mortality <- function(data){
     
     # join the .before and .after dfs back together
     data <- bind_rows(particles.before, particles.after)
-  }
 }
+
