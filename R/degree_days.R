@@ -1,7 +1,7 @@
 degree_days <- function(data){
   data <- data %>% 
-    group_by(traj) %>% 
-    mutate(degree.days = cumsum(temp)) %>%
+    group_by(particle.id) %>% 
+    mutate(degree.days = cumsum(replace_na(temp, 0))) %>%
     ungroup()
   
   if (species == "gmc"){
@@ -29,9 +29,9 @@ degree_days <- function(data){
     gmc.dd.dist <- rnorm(n = 10000, mean = gmc.dd.mean, sd = gmc.dd.sd) 
     
     data <- data %>%
-      group_by(traj) %>%
+      group_by(particle.id) %>%
       mutate(dd.cutoff = sample(gmc.dd.dist, 1)) %>%
-      mutate(settlement = if_else(degree.days > dd.cutoff, "settled", "not settled")) %>%
+      mutate(stage = if_else(degree.days > dd.cutoff, "megalopa", "larvae")) %>% # eligible to settle, not actually settled
       ungroup()
   } else if (species == "bsc"){
     # bsc from Bryars & Havenhand (2006), doi:10.1016/j.jembe.2005.09.004
@@ -60,9 +60,9 @@ degree_days <- function(data){
     bsc.dd.dist <- rnorm(n = 10000, mean = bsc.dd.mean, sd = bsc.dd.sd) 
     
     data <- data %>%
-      group_by(traj) %>%
+      group_by(particle.id) %>%
       mutate(dd.cutoff = sample(bsc.dd.dist, 1)) %>%
-      mutate(settlement = if_else(degree.days > dd.cutoff, "settled", "not settled")) %>%
+      mutate(stage = if_else(degree.days > dd.cutoff, "megalopa", "larvae")) %>%
       ungroup()
   } else if (species == "spanner"){
     # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
@@ -72,7 +72,7 @@ degree_days <- function(data){
     data$dd.cutoff <- spanner.days*temp
     
     data <- data %>%
-      group_by(traj) %>%
-      mutate(settlement = if_else(degree.days > dd.cutoff, "settled", "not settled"))
+      group_by(particle.id) %>%
+      mutate(stage = if_else(degree.days > dd.cutoff, "megalopa", "larvae"))
   }
 }

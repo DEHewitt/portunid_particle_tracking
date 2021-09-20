@@ -1,14 +1,36 @@
 release_info <- function(data){
-  data <- data %>%
-    mutate(rel_lat = if_else(obs == 1, lat, NA_real_)) %>%
-    mutate(rel_lon = if_else(obs == 1, lon, NA_real_)) %>%
-    mutate(rel_date = if_else(obs == 1, date, as.POSIXct(NA_Date_))) %>%
-    mutate(rel_date = as.character(rel_date))
-  data$rel_lat <- na.locf(data$rel_lat, na.rm = F) 
-  data$rel_lon <- na.locf(data$rel_lon, na.rm = F)
-  data$rel_date <- na.locf(data$rel_date, na.rm = F)
-  
-  if (direction == "backwards" & species == "gmc" | direction == "backwards" & species == "bsc"){
+  if (direction == "forwards"){
+    
+    data <- data %>%
+      mutate(rel_lat = if_else(obs == 1, lat, NA_real_)) %>%
+      mutate(rel_lon = if_else(obs == 1, lon, NA_real_)) %>%
+      mutate(rel_date = if_else(obs == 1, date, as.POSIXct(NA_Date_))) %>%
+      mutate(rel_date = as.character(rel_date)) %>%
+      mutate(rel_bathy = if_else(obs == 1, bathy, NA_real_))
+    
+    data$rel_lat <- na.locf(data$rel_lat, na.rm = F) 
+    data$rel_lon <- na.locf(data$rel_lon, na.rm = F)
+    data$rel_date <- na.locf(data$rel_date, na.rm = F)
+    data$rel_bathy <- na.locf(data$rel_bathy, na.rm = F)
+    
+    data <- data %>%
+      mutate(eac.zone = case_when(rel_lat > -31 ~ "EAC core",
+                                  rel_lat < -31 & rel_lat > -33 ~ "EAC separation",
+                                  rel_lat < -33 ~ "Eddy field")) %>%
+      mutate(shelf.zone = case_when(rel_bathy < 50 ~ "Inner",
+                                    rel_bathy > 50 & rel_bathy < 100 ~ "Mid",
+                                    rel_bathy > 100 ~ "Outer"))
+    
+    data
+  } else if (direction == "backwards" & species == "gmc" | direction == "backwards" & species == "bsc"){
+    data <- data %>%
+      mutate(rel_lat = if_else(obs == 1, lat, NA_real_)) %>%
+      mutate(rel_date = if_else(obs == 1, date, as.POSIXct(NA_Date_))) %>%
+      mutate(rel_date = as.character(rel_date))
+    
+    data$rel_lat <- na.locf(data$rel_lat, na.rm = F)
+    data$rel_date <- na.locf(data$rel_date, na.rm = F)
+    
     data <- data %>%
       mutate(rel_est = case_when(rel_lat == -18.541 ~ "Hinchinbrook Island",
                                  rel_lat == -23.850 ~ "The Narrows",
@@ -25,6 +47,7 @@ release_info <- function(data){
                                  rel_lat == -32.917 ~ "Hunter River",
                                  rel_lat == -33.578 ~ "Hawkesbury River",
                                  rel_lat == -34.546 ~ "Lake Illawarra"))
+    
+    data
   } 
-  data
 }

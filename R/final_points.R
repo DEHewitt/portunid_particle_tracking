@@ -1,5 +1,8 @@
 final_points <- function(data){
   # create a df of final points (dd = dd.cutoff and alive)
+  
+  data <- data %>% filter(beached == 0)
+  
   if (direction == "forwards"){
     particles.final <- data %>%
       filter(settlement == "settled" & status == "alive") %>%

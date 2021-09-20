@@ -1,9 +1,9 @@
 #!/bin/bash
  
-#PBS -l select=1:ncpus=2:mem=10gb:mpiprocs=2
+#PBS -l select=1:ncpus=2:mem=124gb:mpiprocs=2
 #PBS -l walltime=12:00:00
 #PBS -j oe
-#PBS -J 0-119
+#PBS -J 0-359
 #PBS -M daniel.hewitt@unsw.edu.au
 #PBS -m ae
 

@@ -1,4 +1,5 @@
-apply_mortality <- function(data){
+apply_mortality <- function(data, test = 1){
+  # test is a factor to multiply mortality by to test different values (e.g., 2 doubles the mortality)
     # label all particles as alive
     data$status <- "alive" 
     if (species == "gmc"){
@@ -18,11 +19,12 @@ apply_mortality <- function(data){
       bsc.mean.days <- 15.3 
       m <- 1-exp((1/bsc.mean.days)*log(1-bsc.cum.mortality)) # instantaneous mortality
     } else if (species == "spanner"){
-      # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
-      spanner.survival <- 0.31
-      spanner.days <- 41.3
-      spanner.cum.mortality <- 1-spanner.survival
-      m <- 1-exp((1/spanner.days)*log(1-spanner.cum.mortality)) # instantaneous mortality
+        # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
+        spanner.survival <- 0.31
+        spanner.days <- 41.3
+        spanner.cum.mortality <- 1-spanner.survival
+        m <- 1-exp((1/spanner.days)*log(1-spanner.cum.mortality)) # instantaneous mortality
+        m <- m*test
     }
     
     # convert to actual daily mortality
@@ -48,8 +50,8 @@ apply_mortality <- function(data){
     for (j in cohorts) {
       cohort <- data %>% filter(rel_date == j) # for every release day (i.e., cohort)
       for (i in min.settle:max(data$obs)) { # for every day from the first settlemenet day until the last tracking day 
-        # which particles are alive and haven't settled (i.e. reach their DD)
-        alive.particles <- cohort %>% filter(obs == i & status == "alive" & settlement == "not settled")
+        # which particles are alive and haven't become megalopa (i.e. reach their DD)
+        alive.particles <- cohort %>% filter(obs == i & status == "alive" & stage == "larvae")
         particle.list <- as.data.frame(unique(alive.particles$traj))
         # select the particles to die
         die <- sample_frac(particle.list, size = z)

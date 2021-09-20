@@ -11,6 +11,7 @@ export direction='forwards'
 
 module purge
 
-module add R/4.0.2
+module add gcc/7.5.0
+module add R/4.0.2-gcc7
 
 Rscript portunid_particle_join_processed.R

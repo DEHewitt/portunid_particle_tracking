@@ -69,10 +69,10 @@ elif species == "bsc" and direction == "forwards":
     end_time = datetime(year_array[array_ref]+1, 5, 30)
 elif species == "gmc" and direction == "backwards":
     start_time = datetime(year_array[array_ref], 9, 1)
-    end_time = datetime(year_array[array_ref]+1, 5, 31)
+    end_time = datetime(year_array[array_ref]+1, 6, 10)
 elif species == "bsc" and direction == "backwards":
     start_time = datetime(year_array[array_ref], 9, 1)
-    end_time = datetime(year_array[array_ref]+1, 5, 31)
+    end_time = datetime(year_array[array_ref]+1, 6, 10)
 elif species == "spanner" and direction == "forwards":
     start_time = datetime(year_array[array_ref], 10, 1)
     end_time = datetime(year_array[array_ref]+1, 3, 31)
@@ -85,7 +85,7 @@ runtime = end_time-start_time + delta(days=1)
 if direction == "forwards" or species == "spanner" and direction == "backwards":
     # Randomly choose a new release location for each day of the spawning season
     # Still need the grouping, not sure why - maybe something to do with the apply() function
-    locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days).reset_index(drop=True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
+    locations = df.groupby('ocean_zone').apply(pd.DataFrame.sample, n = runtime.days, replace = True).reset_index(drop = True)[["lat", "lon", 'ocean_zone']] # list of random points for every release
     lat = np.repeat(locations["lat"], npart) # repeat every location by the number of particles 
     lon = np.repeat(locations["lon"], npart)
     # Testing to see about passing a custom variable into a particleset
@@ -165,6 +165,7 @@ if direction == "forwards" or species == "spanner" and direction == "backwards":
         temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
         u_vel = Variable('u_vel', dtype = np.float32, initial = 0)
         v_vel = Variable('v_vel', dtype = np.float32, initial = 0)
+        beached = Variable('beached', dtype = np.float32, initial = 0)
 else:
     class SampleParticle(JITParticle): 
         sampled = Variable('sampled', dtype = np.float32, initial = 0, to_write=False)
@@ -181,6 +182,7 @@ else:
         temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
         u_vel = Variable('u_vel', dtype = np.float32, initial = 0)
         v_vel = Variable('v_vel', dtype = np.float32, initial = 0)
+        beached = Variable('beached', dtype = np.float32, initial = 0)
         
 # Define all the sampling kernels
 def SampleDistance(particle, fieldset, time):
@@ -208,8 +210,8 @@ def SampleVelocities(particle, fieldset, time):
 def Unbeaching(particle, fieldset, time):
     if particle.age == 0 and particle.u_vel == 0 and particle.v_vel == 0: # velocity = 0 means particle is on land so nudge it eastward
         particle.lon += random.uniform(0.5, 1)
-    elif particle.u_vel == 0 and particle.v_vel == 0: # if a particle is advected on to land delete it
-        particle.delete()
+    elif particle.u_vel == 0 and particle.v_vel == 0: # if a particle is advected on to land so mark it as beached (=1)
+        particle.beached = 1
 
 def SampleTemp(particle, fieldset, time):
     particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
@@ -236,6 +238,7 @@ if direction == "forwards" or species == "spanner" and direction == "backwards":
             particle.temp_m = particle.depth*particle.bathy
             particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
             particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
+            particle.beached = particle.beached
             particle.sampled = 1
             
 elif direction == "backwards":
@@ -253,6 +256,7 @@ elif direction == "backwards":
             particle.temp_m = particle.depth*particle.bathy
             particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
             particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
+            particle.beached = particle.beached
             particle.sampled = 1
          
 # kernel to force particles above the bottom boundary if they ever go through it
@@ -313,7 +317,7 @@ if direction == "forwards":
     time = np.repeat(release_times, npart)
 elif direction == "backwards" and species == "spanner":
     # This might take some testing give start/end time confusion when going backwards...
-    pset_start = (end_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
+    pset_start = (start_time-datetime.strptime(str(fieldset.time_origin)[0:10], "%Y-%m-%d")).total_seconds() # I think start_time will have to be end_time
     release_times = pset_start + (np.arange(0, runtime.days) * repeatdt.total_seconds())
     time = np.repeat(release_times, npart)
     

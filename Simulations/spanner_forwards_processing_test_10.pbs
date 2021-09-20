@@ -3,12 +3,13 @@
 #PBS -l select=1:ncpus=1:mem=124gb
 #PBS -l walltime=11:59:00
 #PBS -j oe
-#PBS -J 1-570
+#PBS -J 1-162
 #PBS -M daniel.hewitt@unsw.edu.au
 #PBS -m ae
 
-export species='gmc'
+export species='spanner'
 export direction='forwards'
+export test='10'
 
 module purge
 

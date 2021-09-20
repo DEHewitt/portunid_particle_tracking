@@ -1,4 +1,7 @@
 settlement_points <- function(data){
+  
+  data <- data %>% filter(beached == 0)
+  
   if (direction == "forwards"){
     if (species == "gmc" | species == "bsc"){
       particles.settled <- data %>% 

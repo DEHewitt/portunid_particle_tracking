@@ -4,6 +4,6 @@ spawning_season <- function(data){
       filter(month(rel_date) != "5")
   } else if (species == "spanner" & direction == "forwards") {
     data <- data %>%
-      filter(month(rel_date) != "2")
+      filter(month(rel_date) != "3" | month(rel_date) != "4")
   } 
 }
