@@ -24,17 +24,23 @@ if (Sys.info()[6] == "Dan"){
   # open the aux info
   particles.info <- nc_open(paste(file.path, files[4], sep = "/"))
 } else {
+  # import the species name
+  species <- Sys.getenv("species")
+  if(species == 'spanner') { # this loop is because spanner crabs are in Hayden's directory
+    # set to scratch directory
+    setwd("../../srv/scratch/z3374139/portunid_particle_tracking")
+    
+    # file path
+    file.path <- "/srv/scratch/z3374139/portunid_particle_tracking"
+  } else{
   # set to scratch directory
   setwd("../../srv/scratch/z5278054/portunid_particle_tracking")
   
   # file path
   file.path <- "/srv/scratch/z5278054/portunid_particle_tracking"
-  
+  }
   # import the array index
   index <- as.integer(Sys.getenv('PBS_ARRAY_INDEX'))
-  
-  # import the species name
-  species <- Sys.getenv("species")
   
   # import the direction of the simulation
   direction <- Sys.getenv("direction")
