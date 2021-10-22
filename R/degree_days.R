@@ -1,4 +1,4 @@
-degree_days <- function(data){
+degree_days <- function(data){ spannerDD = 41.3*25
   data <- data %>% 
     group_by(particle.id) %>% 
     mutate(degree.days = cumsum(replace_na(temp, 0))) %>%
@@ -66,10 +66,10 @@ degree_days <- function(data){
       ungroup()
   } else if (species == "spanner"){
     # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
-    # means not given so will have to use a hard cut-off
-    spanner.days <- 41.3
-    temp <- 25
-    data$dd.cutoff <- spanner.days*temp
+    # means not given so will have to use a hard cut-off as default
+    #spanner.days <- 41.3
+    #temp <- 25
+    data$dd.cutoff <- spannerDD#spanner.days*temp
     
     data <- data %>%
       group_by(particle.id) %>%

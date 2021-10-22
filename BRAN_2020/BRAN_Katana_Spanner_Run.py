@@ -161,6 +161,7 @@ class SampleParticle(JITParticle):         # Define a new particle class
     u_vel = Variable('u_vel', dtype = np.float32, initial = 0)
     v_vel = Variable('v_vel', dtype = np.float32, initial = 0)
     ocean_zone = Variable('ocean_zone', initial=0)
+    beached = Variable('beached', dtype = np.float32, initial = 0)
 
 
 def SampleDistance(particle, fieldset, time):
@@ -207,6 +208,7 @@ def SampleInitial(particle, fieldset, time):
          particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
          particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
          particle.ocean_zone = particle.ocean_zone
+         particle.beached = particle.beached
 
 
  #create a buoyancy kernel
@@ -221,7 +223,7 @@ def larvalBuoyancy(particle, fieldset, time):
 def Unbeaching(particle, fieldset, time):
     if particle.age == 0 and particle.u_vel == 0 and particle.v_vel == 0: # velocity = 0 means particle is on land so nudge it eastward
         particle.lon += random.uniform(0.5, 1)
-    elif particle.u_vel == 0 and particle.v_vel == 0: # if a particle is advected on to land delete it
+    elif particle.u_vel == 0 and particle.v_vel == 0: # if a particle is advected on to land so mark it as beached (=1)
         particle.delete()
 
         
@@ -270,7 +272,7 @@ pset = ParticleSet.from_list(fieldset, pclass=SampleParticle, lon=lon, lat=lat,o
 #pset.show(domain={'N':-28, 'S':-30, 'E':154.5, 'W':153}) #
 
 #out_file = "/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN/Output/BRAN_Test_output.nc"
-out_file = str("/srv/scratch/z5278054/portunid_particle_tracking/spanner/forwards/spanner_") +str(year_array[array_ref])+'_'+str("forward_")+str(array_ref)+'.nc'
+out_file = str("/srv/scratch/z3374139/portunid_particle_tracking/spanner/forwards/spanner_") +str(year_array[array_ref])+'_'+str("forward_")+str(array_ref)+'.nc'
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 if os.path.exists(out_file):
