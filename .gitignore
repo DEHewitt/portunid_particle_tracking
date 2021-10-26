@@ -4,4 +4,5 @@ Nesting/ROMS Data/*
 *.DS_Store
 BRAN_2020/AUS/Ocean*
 BRAN_2020/AUS/grid*
+*DD.rds
 BRAN_2020/Output/*
