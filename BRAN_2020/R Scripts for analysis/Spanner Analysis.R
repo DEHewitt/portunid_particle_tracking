@@ -4,7 +4,7 @@ library(tidyverse)
 
 setwd("C:/Users/htsch/Documents/GitHub/portunid_particle_tracking/BRAN_2020/")
 
-mydata <- read_csv("Output/spanner_forward_master_settled.csv") # .rds is the older one
+#mydata <- read_csv("Output/spanner_forward_master_settled.csv") # .rds is the older one
 mydata <- readRDS("Output/spanner_forwards_master_settled.rds") # .rds is the older one
 mydata$age <- mydata$age/86400
 mydata$Year <- lubridate::year(mydata$rel_date)
@@ -71,10 +71,10 @@ write_csv(nsw_sum, "test_out.csv")
 nsw_sum <- read_csv("test_out.csv")
 
 
-CPUE <- read_csv("Spanner Crab Annual CPUE.csv")
+CPUE <- read_csv("Other Data/Spanner Crab Annual CPUE.csv")
 CPUE <- CPUE %>% rename(Year = `Event date Year`)
 
-CPUE2 <- read_csv("Spanner_for_HS__data_request_01072021.csv")
+CPUE2 <- read_csv("Other Data/Spanner_for_HS__data_request_01072021.csv")
 
 
 full_dat <- full_join(CPUE2, nsw_sum) %>% arrange(Year)
@@ -126,13 +126,44 @@ ggplot(full_dat_standardised_long, aes(Year, value, col=name)) + geom_point() + 
         legend.position = "bottom",
         legend.title = element_text(face="bold",size=14),
         legend.text = element_text(size=12)) +
-  scale_color_manual(values=c("red","blue", "black"), name="Data\nSource", labels = c("CPUE\nFisher kg/day","CPUE\nkg/net", "Predicted Recruitment\nto Fishery"))
+  scale_color_manual(values=c("red","blue", "black", "green"), name="Data\nSource", labels = c("CPUE\nFisher kg/day","CPUE\nkg/net", "Predicted Recruitment\nto Fishery", "prop"))
 
-ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE.png", dpi=600, units="cm", height = 14.8, width=21)
-ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE.pdf", dpi=600, units="cm", height = 14.8, width=21)
+#ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE.png", dpi=600, units="cm", height = 14.8, width=21)
+#ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE.pdf", dpi=600, units="cm", height = 14.8, width=21)
 
 cor.test(full_dat_standardised$standardised_lagged_Predicted_recruitment, full_dat_standardised$CPUE_relative2)
 cor.test(full_dat_standardised$standardised_lagged_Predicted_recruitment, full_dat_standardised$CPUE_relative1)
+
+### Does it match proportion of harvest
+harv_p <- read_csv("Other Data/QLD_NSW_Data_30_11_21v3.csv") %>% select(Year, NSW_Proportion)
+full_dat_standardised <- left_join(full_dat_standardised, harv_p)
+
+cor.test(full_dat_standardised$standardised_lagged_Predicted_recruitment, full_dat_standardised$NSW_Proportion)
+
+ggplot(full_dat_standardised, aes(x=Year, col=name)) + 
+  geom_line(aes(y=standardised_lagged_Predicted_recruitment), col="black")+
+  geom_point(aes(y=standardised_lagged_Predicted_recruitment), col="black") + 
+  geom_line(aes(y=NSW_Proportion*6), col="red")+
+  geom_point(aes(y=NSW_Proportion*6), col="red")+
+  scale_y_continuous(limits = c(0,1.1),    # Features of the first axis
+   # name = "First Axis",    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./6, name="Proportion Caught in NSW (Zone 7)"))+
+  #ylim(c(0,1.1))+
+  theme_classic()+ ylab("Predicted Recruitment Index")+ 
+  scale_x_continuous(breaks=seq(1998,2020,2), limits = c(1998,2021))+
+  #geom_errorbar(aes(ymin=value-SE, ymax=value+SE))+
+  theme(axis.text.y = element_text(colour="black", size=12),
+        axis.text.y.right = element_text(colour="red", size=12),
+        axis.text.x = element_text(colour="black", size=12, angle=45, vjust=0.5),
+        axis.title = element_text(face="bold", size=14),
+        axis.title.y.right = element_text(face="bold", size=14, colour = "red"),
+        legend.position = "bottom",
+        legend.title = element_text(face="bold",size=14),
+        legend.text = element_text(size=12)) #+
+ # scale_color_manual(values=c("red","blue", "black", "green"), name="Data\nSource", labels = c("CPUE\nFisher kg/day","CPUE\nkg/net", "Predicted Recruitment\nto Fishery", "prop"))
+ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v Harvest Proportions.png", dpi=600, units="cm", height = 14.8, width=21)
+ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v Harvest Proportions.pdf", dpi=600, units="cm", height = 14.8, width=21)
+
 
 
 # What months is settlement mostly happening in NSW

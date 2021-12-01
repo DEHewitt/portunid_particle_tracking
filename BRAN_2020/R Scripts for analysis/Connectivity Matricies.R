@@ -76,7 +76,7 @@ p2 <- ggplot(con_dat6, aes(region, ocean_zone, fill = Settlement_Mean_Percent)) 
                      panel.grid.minor = element_blank(),
                      panel.grid.major = element_blank())+
   #ggtitle("a) Spawning zones of particles settling \nin each zones")
-  ggtitle("a) Where do particles settling\nin each zone originate")
+  ggtitle("a) Where do particles settling\nin each zone originate?")
 
 p2
 
@@ -120,6 +120,6 @@ p3
 ### merge plots
 library(patchwork)
 p2 + p3
-ggsave("C:/Users/htsch/Desktop/Snapper Crab/Two panel connectivity Matrix_12_10_21.png", dpi=600, units="cm", width=21, height=14.8)
-ggsave("C:/Users/htsch/Desktop/Snapper Crab/Two panel connectivity Matrixx_12_10_21.pdf", dpi=600, units="cm", width=21, height=14.8)
+ggsave("C:/Users/htsch/Desktop/Snapper Crab/Two panel connectivity Matrix_29_11_21.png", dpi=600, units="cm", width=21, height=14.8)
+ggsave("C:/Users/htsch/Desktop/Snapper Crab/Two panel connectivity Matrixx_29_11_21.pdf", dpi=600, units="cm", width=21, height=14.8)
 
