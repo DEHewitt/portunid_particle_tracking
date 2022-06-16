@@ -3,7 +3,7 @@ Code for simulation and analysis of particle tracking experiments for Giant Mud 
 
 This repository contains all the files required to run particle tracking on the UNSW HPC (Katana) for the publications _DOI for GMC/BSC paper_ and _DOI for spanner crab paper_.
 
-Spanner Crab analysis is all located in the BRAN_2020 folder as it uses the BRAN2020 ocean model.
+Spanner Crab analysis is all located in the BRAN_2020 folder as it uses the BRAN2020 ocean model. The spanner crab analysis is currently under review (Schilling et al)
 
 Particle tracking is conducted in `Python` using [PARCELS](https://github.com/OceanParcels/parcels), all output is then processed in `R`.
 
