@@ -7,14 +7,14 @@ final_points <- function(data){
     particles.final <- data %>%
       filter(settlement == "settled" & status == "alive") %>%
       filter(degree.days < dd.cutoff + temp) %>%
-      group_by(traj) %>%
+      group_by(particle.id) %>%
       filter(obs == min(obs)) %>%
       ungroup()
   } else if (direction == "backwards"){
     particles.final <- data %>%
       filter(settlement == "settled") %>%
       filter(degree.days < dd.cutoff + temp) %>%
-      group_by(traj) %>%
+      group_by(particle.id) %>%
       filter(obs == min(obs)) %>%
       ungroup()
   }

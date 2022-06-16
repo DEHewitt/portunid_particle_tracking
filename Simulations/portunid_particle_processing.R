@@ -13,7 +13,7 @@ if (Sys.info()[6] == "Dan"){
   direction <- "forwards"
   
   # set file path
-  file.path <- "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Data/output_testing"
+  file.path <- "C:/Users/Dan/OneDrive - UNSW/Documents/PhD/Dispersal/github/portunid_particle_tracking/Data/output_testing"
   
   # list files
   files <- list.files(file.path, pattern = ".nc")
@@ -32,7 +32,7 @@ if (Sys.info()[6] == "Dan"){
     
     # file path
     file.path <- "/srv/scratch/z3374139/portunid_particle_tracking"
-  } else{
+  } else {
   # set to scratch directory
   setwd("../../srv/scratch/z5278054/portunid_particle_tracking")
   
@@ -59,20 +59,20 @@ if (Sys.info()[6] == "Dan"){
 }
 
 # load custom functions
-source("R/convert_time.R")
-source("R/missing_temperature.R")
-source("R/degree_days.R")
-source("R/release_info.R")
-source("R/spawning_season.R")
-source("R/apply_mortality.R")
-source("R/settlement_locations.R")
-source("R/final_points.R")
+source("R/convert_time.R") # formats the time from the model to be readable
+source("R/missing_temperature.R") # back fill missing temperature observations based on the last non-NA
+source("R/degree_days.R") # calculate rolling degree-days for a particle
+source("R/release_info.R") # get the basic release info (e.g., location, time)
+source("R/spawning_season.R") # filter out particles spawned outside the spawning season
+source("R/apply_mortality.R") # apply mortality to each cohort
+source("R/settlement_locations.R") # figure out the locations of particles when they are ready to settle (e.g., megalopa)
+source("R/final_points.R") # get the final locations (when DD = cutoff value)
 source("R/save_object.R")
-source("R/settlement_points.R")
-source("R/bring_out_your_dead.R")
-source("R/settlers.R")
+source("R/settlers.R") # function that labels a particle as settled or not
+source("R/settlement_points.R") # function to return just the settled particles (i.e., DD = cutoff, on shelf, at an estuary, are megalopa)
+source("R/bring_out_your_dead.R") # summarises sources of mortality based on eac.zone and shelf.zone of spawning
 
-# convert time to a readable format (i.e., not seconds since x)
+# convert time to a readable format (YYYY-MM-DD hh:mm:ss)
 particles <- particles %>% convert_time(particles.info)
 
 # remove columns that are unused
@@ -96,7 +96,7 @@ if (direction == "forwards"){
   # remove any particles spawned after the spawning season ended
   particles <- particles %>% spawning_season()
   
-  # apply mortality
+  # apply mortality - adds a column `status` that is either "alive" or "dead"
   if (species == "spanner"){
     particles <- particles %>% apply_mortality(test = test)
   } else {
@@ -115,6 +115,9 @@ if (direction == "forwards"){
   # save the mortality table
   mortalities %>% save_object(type = "mortalities")
 }
+
+# did the particle settle?
+particles <- particles %>% settlers(direction = direction)
 
 # get final points (on and off shelf, still alive)
 particles.final <- particles %>% final_points()

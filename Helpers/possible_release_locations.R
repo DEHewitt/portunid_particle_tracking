@@ -6,7 +6,7 @@ library(sf)
 
 setwd("C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking")
 # Load the ozroms bathymetry data
-bathy <- tidync("Data/bathymetry.nc") %>% hyper_tibble()
+bathy <- tidync("github/portunid_particle_tracking/Data/bathymetry.nc") %>% hyper_tibble()
 oz <- ne_states(country = "australia", returnclass = "sf")
 
 head(bathy)
@@ -25,7 +25,7 @@ ggplot() +
 # are stored separate to the bathymetry data
 
 # load a velocities file
-vel.file <- hyper_tibble("Data/20150101.nc")
+vel.file <- hyper_tibble("github/portunid_particle_tracking/Data/20150101.nc")
 # select the non-NaN velocity cells (i.e. the ones that are in the ocean)
 vel.file <- vel.file %>%
   filter(u != is.nan(u))
@@ -59,7 +59,8 @@ ggplot() +
   
 
 # set up the ocean_zone column
-ocean_zones <- data.frame(max_lat = seq(-15, -37, by = -1), min_lat = seq(-16, -38, by = -1))
+ocean_zones <- data.frame(max_lat = seq(-15, -37, by = -1), 
+                          min_lat = seq(-16, -38, by = -1))
 ocean_zones <- ocean_zones %>%
   #mutate(state = if_else(min_lat < -28, "NSW", "QLD")) %>%
   #group_by(state) %>%
@@ -75,13 +76,30 @@ gmc.locations <- shelf %>%
   select(lon, lat, ocean_zone) %>%
   filter(lat > -34)
 
+# get the depths for splitting into shelf zones
+#latitudes <- gmc.locations$lat %>% unique()
+#longitudes <- gmc.locations$lon %>% unique()
+
+#depths <- shelf %>%
+ # filter(lat %in% latitudes & lon %in% longitudes) %>% 
+  #select(-time)
+
+#gmc.locations <- gmc.locations %>% 
+ # left_join(depths)
+
+#gmc.locations <- gmc.locations %>%
+ # mutate(ocean_zone = case_when(h < 50 ~ as.numeric(paste0(ocean_zone, ".1")),
+  #                              h > 50 & h < 100 ~ as.numeric(paste0(ocean_zone, ".2")),
+   #                             h > 100 ~ as.numeric(paste0(ocean_zone, ".3"))))
+
 ggplot() +
   geom_point(data = gmc.locations,
              aes(x = lon,
-                 y = lat))
+                 y = lat,
+                 colour = ocean_zone))
 
-write_csv(gmc.locations, "C:/Users/Dan/Documents/PhD/Dispersal/data_processed/gmc_possible_locations.csv")
-write_csv(gmc.locations, "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Simulations/gmc_possible_locations.csv")
+write_csv(gmc.locations, "data_processed/gmc_possible_locations.csv")
+write_csv(gmc.locations, "github/portunid_particle_tracking/Data/gmc_possible_locations.csv")
 
 # bsc
 bsc.locations <- shelf %>%
@@ -90,13 +108,29 @@ bsc.locations <- shelf %>%
   select(lon, lat, ocean_zone) %>%
   filter(lat > -35 & lat < -23)
 
+# get the depths for splitting into shelf zones
+#latitudes <- bsc.locations$lat %>% unique()
+#longitudes <- bsc.locations$lon %>% unique()
+
+#depths <- shelf %>%
+ # filter(lat %in% latitudes & lon %in% longitudes) %>% 
+  #select(-time)
+
+#bsc.locations <- bsc.locations %>% 
+ # left_join(depths)
+
+#bsc.locations <- bsc.locations %>%
+ # mutate(ocean_zone = case_when(h < 50 ~ as.numeric(paste0(ocean_zone, ".1")),
+  #                              h > 50 & h < 100 ~ as.numeric(paste0(ocean_zone, ".2")),
+   #                             h > 100 ~ as.numeric(paste0(ocean_zone, ".3"))))
+
 ggplot() +
   geom_point(data = bsc.locations,
              aes(x = lon,
                  y = lat))
 
-write_csv(bsc.locations, "C:/Users/Dan/Documents/PhD/Dispersal/data_processed/bsc_possible_locations.csv")
-write_csv(bsc.locations, "C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking/Simulations/bsc_possible_locations.csv")
+write_csv(bsc.locations, "data_processed/bsc_possible_locations.csv")
+write_csv(bsc.locations, "github/portunid_particle_tracking/Data/bsc_possible_locations.csv")
 
 # spanner crab
 spanner.locations <- shelf %>%

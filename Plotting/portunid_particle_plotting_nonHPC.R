@@ -10,31 +10,35 @@ library(jpeg)
 library(grid)
 library(ggrepel)
 library(ggspatial)
+library(tidync)
 
-setwd("C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking")
+#setwd("C:/Users/Dan/Documents/PhD/Dispersal/github/portunid_particle_tracking")
 
 #################
 ### load data ###
 #################
 # random output file selected because it's roughly halfway along the coast
 # aiming to capture the eac jet and eddy field
-particles <- hyper_tibble("Data/gmc_2013_12_forwards.nc")
+particles <- hyper_tibble("github/portunid_particle_tracking/Data/gmc_2013_12_forwards.nc")
 # shape file of australia
 oz <- ne_states(country = "australia", returnclass = "sf")
 # forwards release locations
 # gmc
-gmc.release <- read_csv("Data/gmc_possible_locations.csv")
+gmc.release <- read_csv("github/portunid_particle_tracking/Data/gmc_possible_locations.csv") %>% filter(lat < -18)
 # bsc
-bsc.release <- read_csv("Data/bsc_possible_locations.csv")
+bsc.release <- read_csv("github/portunid_particle_tracking/Data/bsc_possible_locations.csv")
 # locations of estuaries where GMC/BSC are fished
-estuaries <- read_csv("Data/portunid_settlement_locations.csv")
+estuaries <- read_csv("github/portunid_particle_tracking/Data/portunid_settlement_locations.csv")
 # shapefile of the continental shelf
-shelf <- read_sf(dsn = "Data/200m_isobath.shp")
+shelf <- read_sf(dsn = "github/portunid_particle_tracking/Data/200m_isobath.shp")
 # eac features
-eac.core <- data.frame(feature = c("EAC core"), lat = c(-26.5), lon = c(152))
+eac.core <- data.frame(feature = c("EAC jet"), lat = c(-26.5), lon = c(152))
 eac.sep <- data.frame(feature = c("EAC separation"), lat = c(-32), lon = c(151))
+eddy.field <- data.frame(feature = "Eddy field", lat = -39.5, lon = 156)
+gbr <- read_sf(dsn = "github/portunid_particle_tracking/Data/GBRMPA_Data/zipfolder/Great_Barrier_Reef_Marine_Park_Boundary.shp")
+gbr.label <- data.frame(feature = "Great\n Barrier Reef", lat = -20, lon = 147.5)
 # random day of ozroms velocities/sst
-ozroms <- hyper_tibble("Data/20101109.nc") %>% 
+ozroms <- hyper_tibble("github/portunid_particle_tracking/Data/20101109.nc") %>% 
   filter(sst != is.nan(sst)) %>%
   filter(depth == max(depth))
 # degree days v days
@@ -42,6 +46,10 @@ settlement.sst <- data.frame(days = seq(1, 40, by = 1)) %>%
   mutate(cold.18 = days*18,
          med.22 = days*22,
          warm.26 = days*26)
+# state labels
+nsw <- data.frame(state = "NSW", lat = c(-32), lon = c(145))
+qld <- data.frame(state = "QLD", lat = c(-24), lon = c(145))
+vic <- data.frame(state = "VIC", lat = c(-37.5), lon = c(145))
 
 # degree days cut-offs
 gmc.dd.mean <- 535
@@ -56,8 +64,8 @@ settlement.stage <- data.frame(stage = c("Larvae 1", "Larvae 2", "Larvae 3", "La
                          species = c(rep("Giant Mud Crab", 6), rep("Blue Swimmer Crab", 5)))
 
 # inset pictures of crab silhouettes
-gmc.silhouette <- readJPEG("Data/gmc_silhouette.jpg")
-bsc.silhouette <- readJPEG("Data/bsc_silhouette.jpg")
+gmc.silhouette <- readJPEG("github/portunid_particle_tracking/Data/gmc_silhouette.jpg")
+bsc.silhouette <- readJPEG("github/portunid_particle_tracking/Data/bsc_silhouette.jpg")
 
 # convert silhouettes to grobs for plotting
 gmc.grob <- rasterGrob(gmc.silhouette, interpolate = T)
@@ -68,7 +76,7 @@ bsc.grob <- rasterGrob(bsc.silhouette, interpolate = T)
 #######################
 
 # gmc
-gmc.estuaries <- estuaries %>% filter(gmc == "yes")
+gmc.estuaries <- estuaries %>% filter(species == "gmc" | species == "both")
 gmc.sites <- ggplot() +
   geom_point(data = gmc.release, # possible points for forwards simulations
                      aes(x = lon,
@@ -110,7 +118,7 @@ gmc.sites <- ggplot() +
                   aes(x = lon, 
                       y = lat, 
                       label = estuary), 
-                  xlim = c(154.5, NA), direction = "y",
+                  xlim = c(154, NA), direction = "y",
                   bg.colour = "white",
                   bg.r = 0.25) +
   theme_bw() +
@@ -121,11 +129,35 @@ gmc.sites <- ggplot() +
   coord_sf(xlim = c(142, 162), 
            ylim = c(-40, -10),
            expand = F) +
-  ylab("Latitude (°)") +
-  xlab("Longitude (°)")
+  ylab("Latitude") +
+  xlab("Longitude") +
+  geom_text_repel(data = nsw,
+                  aes(x = lon,
+                      y = lat,
+                      label = state),
+                  hjust = 1,
+                  xlim = c(145, 147.5),
+                  bg.colour = "white",
+                  bg.r = 0.25) +
+  geom_text_repel(data = qld,
+                  aes(x = lon,
+                      y = lat,
+                      label = state),
+                  hjust = 1,
+                  xlim = c(140, 151.8),
+                  bg.colour = "white",
+                  bg.r = 0.25) +
+  geom_text_repel(data = vic,
+                  aes(x = lon,
+                      y = lat,
+                      label = state),
+                  hjust = 1,
+                  xlim = c(140, 151.8),
+                  bg.colour = "white",
+                  bg.r = 0.25)
   
 # bsc
-bsc.estuaries <- estuaries %>% filter(bsc == "yes")
+bsc.estuaries <- estuaries %>% filter(species == "bsc" | species == "both") %>% filter(estuary != "Hawkesbury River")
 bsc.sites <- ggplot() +
   geom_point(data = bsc.release, # possible points for forwards simulations
              aes(x = lon,
@@ -167,7 +199,7 @@ bsc.sites <- ggplot() +
                   aes(x = lon, 
                       y = lat, 
                       label = estuary), 
-                  xlim = c(154.5, NA), direction = "y",
+                  xlim = c(154, NA), direction = "y",
                   bg.colour = "white",
                   bg.r = 0.25) +
   theme_bw() +
@@ -179,8 +211,8 @@ bsc.sites <- ggplot() +
   coord_sf(xlim = c(142, 162), 
            ylim = c(-40, -10),
            expand = F) +
-  ylab("Latitude (°)") +
-  xlab("Longitude (°)")
+  ylab("Latitude") +
+  xlab("Longitude")
 
 # eac
 #ozroms.thinned <- ozroms %>%
@@ -221,11 +253,11 @@ eac <- ggplot() +
                    y = min(ozroms$lat), 
                    yend = -32),
                linetype = "dashed") +
+  geom_sf(data = gbr, fill = NA, linetype = "dashed", colour = "black") +
   coord_sf(xlim = c(142, 162), 
          ylim = c(-40, -10),
            expand = F) +
-  scale_color_gradientn(colours = rainbow(5, start = 0, end = 4/6),
-                        trans = "reverse") +
+  scale_color_gradientn(colours = rainbow(5, start = 0, end = 4/6), trans = "reverse") +
   theme_bw() +
   theme(panel.grid = element_blank(),
         axis.title = element_text(size = 12, colour = "black"),
@@ -270,21 +302,37 @@ eac <- ggplot() +
                   xlim = c(140, 150.8),
                   bg.colour = "white",
                   bg.r = 0.25) +
+  geom_text_repel(data = eddy.field,
+                  aes(x = lon,
+                      y = lat,
+                      label = feature),
+                  hjust = 0.5,
+                  xlim = c(152.5, 160),
+                  bg.colour = "white",
+                  bg.r = 0.25) +
+  geom_text_repel(data = gbr.label,
+                  aes(x = lon,
+                      y = lat,
+                      label = feature),
+                  hjust = 0.5,
+                  xlim = c(142.5, 147.5),
+                  bg.colour = "white",
+                  bg.r = 0.25) +
   coord_sf(xlim = c(142, 162), 
            ylim = c(-40, -10),
            expand = F) +
   annotation_north_arrow(location = "tr", which_north = "true",
                          style = north_arrow_fancy_orienteering)
 
-site.map <- gmc.sites|bsc.sites|eac 
+site.map <- (gmc.sites|bsc.sites|eac) + plot_annotation(tag_levels = "a") 
 
-ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/fig_one_site_map.jpeg", 
+ggsave("C:/Users/Dan/OneDrive - UNSW/Documents/PhD/Dispersal/figures/fig_one_site_map.png", 
        plot = site.map, 
-       device = "jpeg", 
+       device = "png", 
        width = 29, # a4 dimensions
        height = 20, 
        units = "cm", 
-       dpi = 300)
+       dpi = 600)
 
 #######################
 ## supp. figs for eg ##
@@ -326,7 +374,7 @@ sst.path <- ggplot() +
   theme_bw() +
   theme(panel.grid = element_blank(),
         axis.title = element_text(size = 12, colour = "black"),
-        axis.text = element_text(size = 12, colour = "black"), ,
+        axis.text = element_text(size = 12, colour = "black"),
         legend.position = "none") +
   ylab("Latitude (°)") +
   xlab("Longitude (°)") +
@@ -343,7 +391,7 @@ dd.v.days <- ggplot() +
   theme_bw() +
   theme(panel.grid = element_blank(),
         axis.title = element_text(size = 12, colour = "black"),
-        axis.text = element_text(size = 12, colour = "black"), ,
+        axis.text = element_text(size = 12, colour = "black"),
         legend.text = element_text(size = 12, colour = "black"),
         legend.title = element_text(size = 12, colour = "black")) +
   ylab("Degree-days") +
@@ -354,13 +402,13 @@ dd.v.days <- ggplot() +
 
 sst.path <- sst.path|dd.v.days
 
-ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_sst_path_example.jpeg", 
+ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_sst_path_example.png", 
        plot = sst.path, 
-       device = "jpeg", 
+       device = "png", 
        width = 20, # a4 dimensions
        height = 15, 
        units = "cm", 
-       dpi = 300)
+       dpi = 600)
 
 # settlement stage
 # gmc
@@ -381,7 +429,7 @@ gmc.stage <- ggplot() +
         axis.title = element_text(size = 12, colour = "black"),
         axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
-        axis.text = element_text(size = 12, colour = "black"), ,
+        axis.text = element_text(size = 12, colour = "black"),
         legend.text = element_text(size = 12, colour = "black"),
         legend.title = element_text(size = 12, colour = "black")) +
   ylab("Larval stage") +
@@ -393,8 +441,8 @@ gmc.stage <- ggplot() +
            label = "Settlement", 
            size = 4, 
            colour = "black", 
-           vjust = -.5) +
-  annotation_custom(gmc.grob, xmin = 536, xmax = 631, ymin = "Larvae 5", ymax = "Megalopa") # add a picture of a crab
+           vjust = -.5)# +
+ # annotation_custom(gmc.grob, xmin = 536, xmax = 631, ymin = "Larvae 5", ymax = "Megalopa") # add a picture of a crab
   
 # bsc
 bsc.settlement.stage <- settlement.stage %>% filter(species == "Blue Swimmer Crab")
@@ -426,18 +474,18 @@ bsc.stage <- ggplot() +
            label = "Settlement", 
            size = 4, 
            colour = "black", 
-           vjust = -.5) +
-  annotation_custom(bsc.grob, xmin = 384.5, xmax = 460, ymin = "Larvae 4", ymax = "Megalopa")
+           vjust = -.5)# +
+ # annotation_custom(bsc.grob, xmin = 384.5, xmax = 460, ymin = "Larvae 4", ymax = "Megalopa")
 
 settlement <- gmc.stage/bsc.stage
 
-ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_settlement_stage_example.jpeg", 
+ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_settlement_stage_example.png", 
        plot = settlement, 
-       device = "jpeg", 
+       device = "png", 
        width = 10, # a4 dimensions
        height = 15, 
        units = "cm", 
-       dpi = 300)
+       dpi = 600)
    
 # dd and various sst
 # gmc
@@ -484,8 +532,8 @@ gmc.dd.sst <- ggplot() +
   theme(axis.text = element_text(size = 12, colour = "black"), 
         axis.title.x = element_blank(),
         axis.title = element_text(size = 12, colour = "black"),
-        panel.grid = element_blank()) +
-  annotation_custom(gmc.grob, xmin = -1, xmax = 5, ymin = 535, ymax = 635)
+        panel.grid = element_blank())# +
+ # annotation_custom(gmc.grob, xmin = -1, xmax = 5, ymin = 535, ymax = 635)
 
 # bsc
 bsc.dd.sst <- ggplot() +
@@ -532,18 +580,18 @@ bsc.dd.sst <- ggplot() +
   ylab("Degree-days") +
   theme(axis.text = element_text(size = 12, colour = "black"), 
         axis.title = element_text(size = 12, colour = "black"),
-        panel.grid = element_blank()) +
-  annotation_custom(bsc.grob, xmin = -1, xmax = 5, ymin = 384.5, ymax = 460)
+        panel.grid = element_blank())# +
+ # annotation_custom(bsc.grob, xmin = -1, xmax = 5, ymin = 384.5, ymax = 460)
 
 dd.sst <- gmc.dd.sst/bsc.dd.sst
 
-ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_dd_sst_example.jpeg", 
+ggsave("C:/Users/Dan/Documents/PhD/Dispersal/figures/supp_fig_dd_sst_example.png", 
        plot = dd.sst, 
-       device = "jpeg", 
+       device = "png", 
        width = 10, # a4 dimensions
        height = 15, 
        units = "cm", 
-       dpi = 300)  
+       dpi = 600)  
 
 dd.examples <- settlement|dd.sst
 

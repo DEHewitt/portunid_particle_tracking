@@ -67,7 +67,12 @@ degree_days <- function(data){
   } else if (species == "spanner"){
     # spanner taken form Minagawa 1990 doi:10.2331/suisan.56.755
     # means not given so will have to use a hard cut-off
-    spanner.days <- 41.3
+    if (Sys.info()[6] != "Dan"){
+      spanner.days <- 41.3
+    } else {
+      spanner.days <- 21.4
+    }
+    
     temp <- 25
     data$dd.cutoff <- spanner.days*temp
     

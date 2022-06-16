@@ -19,13 +19,12 @@ bring_out_your_dead <- function(data){
                                    status == "dead" ~ "natural mortality",
                                  stage == "megalopa" &
                                    status == "alive" &
-                                   beached == 1 ~ "dispersal mortality")) %>%
+                                   beached == 1 ~ "beached mortality")) %>%
     ungroup() %>%
     mutate(year = min(year(rel_date))) %>%
     group_by(mortality, eac.zone, shelf.zone, year) %>%
     summarise(n = n()) %>%
     ungroup() %>%
     mutate(n = if_else(mortality == "dispersal mortality", n + (total.part-sum(n)), n)) %>%
-    add_column(total = total.part) %>%
-    mutate(beaching = total.part-sum(n))
+    add_column(total = total.part)
 }

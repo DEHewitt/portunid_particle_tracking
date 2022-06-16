@@ -1,6 +1,6 @@
 #!home/z5278054/python_parcels/bin/python3
 
-from parcels import FieldSet, Field, ParticleSet, JITParticle, Variable, DiffusionUniformKh, random #, AdvectionRK4_3D
+from parcels import FieldSet, Field, ParticleSet, JITParticle, Variable, DiffusionUniformKh, random, AdvectionRK4#_3D
 from parcels import ErrorCode
 import numpy as np
 from glob import glob
@@ -19,9 +19,9 @@ out_dir = '/srv/scratch/z5278054/portunid_particle_tracking/'+str(species)+'/'+s
 
 # How many particles to release
 if direction == "forwards":
-    npart = 1000  # to be changed to 1000
+    npart = 1000  
 elif direction == "backwards":
-    npart = 100 # to be changed to 100
+    npart = 455 # based on Cetina-Heredia et al., 2015
 
 array_ref = int(os.environ['PBS_ARRAY_INDEX']) # has to equal number of locations * number of years
 
@@ -94,6 +94,8 @@ if direction == "forwards" or species == "spanner" and direction == "backwards":
 
 # Set up the hydrodynamic model
 data_path = '/srv/scratch/z5278054/portunid_particle_tracking/ozroms/'
+#data_path = 'C:/Users/Dan/OneDrive - UNSW/Documents/PhD/Dispersal/data_raw/'
+#ufiles = data_path + '20180731.nc'
 ufiles = sorted(glob('/srv/scratch/z5278054/portunid_particle_tracking/ozroms/2*'))
 vfiles = ufiles
 wfiles = ufiles
@@ -179,7 +181,7 @@ else:
         prev_lat = Variable('prev_lat', dtype=np.float32, to_write=False,
                             initial=0)  # the previous latitude
         depth_m = Variable('depth_m', dtype = np.float32, initial = 0)
-        temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
+        #temp_m = Variable('temp_m', dtype = np.float32, initial = 0, to_write=False)
         u_vel = Variable('u_vel', dtype = np.float32, initial = 0)
         v_vel = Variable('v_vel', dtype = np.float32, initial = 0)
         beached = Variable('beached', dtype = np.float32, initial = 0)
@@ -253,58 +255,58 @@ elif direction == "backwards":
             particle.prev_lat = particle.lat
            # particle.ocean_zone = particle.ocean_zone 
             particle.depth_m = particle.bathy*particle.depth
-            particle.temp_m = particle.depth*particle.bathy
+            #particle.temp_m = particle.depth*particle.bathy
             particle.u_vel = fieldset.U[time, particle.depth, particle.lat, particle.lon]
             particle.v_vel = fieldset.V[time, particle.depth, particle.lat, particle.lon]
             particle.beached = particle.beached
             particle.sampled = 1
          
 # kernel to force particles above the bottom boundary if they ever go through it
-def ResetDepth(particle, fieldset, time):
-    if particle.temp_m/particle.bathy < -0.9833334: 
-        particle.depth = -0.983333
-    else: particle.depth = particle.temp_m/particle.bathy
+#def ResetDepth(particle, fieldset, time):
+ #   if particle.temp_m/particle.bathy < -0.9833334: 
+  #      particle.depth = -0.983333
+   # else: particle.depth = particle.temp_m/particle.bathy
     
 # kernel to get the particles to float to the surface
-def larvalBuoyancy(particle, fieldset, time):
-    surfaceLevel = -0.0166672221875 # surface s-level
+#def larvalBuoyancy(particle, fieldset, time):
+ #   surfaceLevel = -0.0166672221875 # surface s-level
     #floatSpeed =  (-particle.depth_m/10/288)/particle.bathy # equal to 3 s-levels per day
     #if particle.depth < surfaceLevel:
     #    particle.depth += floatSpeed
     #age2 = round(particle.age) # to whole numbers
-    age2 = particle.age
-    if age2 <= 10:
-        floatSpeed = (-particle.depth_m/(10-age2))/particle.bathy/288
-        if (particle.depth + floatSpeed >= surfaceLevel):
-            particle.depth = surfaceLevel
-        else: 
-            particle.depth += floatSpeed
-    else: particle.depth= surfaceLevel
+  #  age2 = particle.age
+   # if age2 <= 10:
+    #    floatSpeed = (-particle.depth_m/(10-age2))/particle.bathy/288
+     #   if (particle.depth + floatSpeed >= surfaceLevel):
+      #      particle.depth = surfaceLevel
+       # else: 
+        #    particle.depth += floatSpeed
+    #else: particle.depth= surfaceLevel
         
-def AdvectionRK4_3D_alternative(particle, fieldset, time):
+#def AdvectionRK4_3D_alternative(particle, fieldset, time):
     """Advection of particles using fourth-order Runge-Kutta integration with vertical velocity independent of vertical grid distortion.
 
     Function needs to be converted to Kernel object before execution"""
-    particle.temp_m = particle.depth*particle.bathy
-    (u1, v1) = fieldset.UV[time, particle.depth, particle.lat, particle.lon]
-    w1 = fieldset.WA[time, particle.depth, particle.lat, particle.lon]
-    lon1 = particle.lon + u1*.5*particle.dt
-    lat1 = particle.lat + v1*.5*particle.dt
-    dep1 = particle.depth + w1*.5*particle.dt
-    (u2, v2) = fieldset.UV[time + .5 * particle.dt, dep1, lat1, lon1]
-    w2 = fieldset.WA[time + .5 * particle.dt, dep1, lat1, lon1]
-    lon2 = particle.lon + u2*.5*particle.dt
-    lat2 = particle.lat + v2*.5*particle.dt
-    dep2 = particle.depth + w2*.5*particle.dt
-    (u3, v3) = fieldset.UV[time + .5 * particle.dt, dep2, lat2, lon2]
-    w3 = fieldset.WA[time + .5 * particle.dt, dep2, lat2, lon2]
-    lon3 = particle.lon + u3*particle.dt
-    lat3 = particle.lat + v3*particle.dt
-    dep3 = particle.depth + w3*particle.dt
-    (u4, v4) = fieldset.UV[time + particle.dt, dep3, lat3, lon3]
-    w4 = fieldset.WA[time + particle.dt, dep3, lat3, lon3]
-    particle.lon += (u1 + 2*u2 + 2*u3 + u4) / 6. * particle.dt
-    particle.lat += (v1 + 2*v2 + 2*v3 + v4) / 6. * particle.dt
+   # particle.temp_m = particle.depth*particle.bathy
+   #(u1, v1) = fieldset.UV[time, particle.depth, particle.lat, particle.lon]
+    #w1 = fieldset.WA[time, particle.depth, particle.lat, particle.lon]
+    #lon1 = particle.lon + u1*.5*particle.dt
+    #lat1 = particle.lat + v1*.5*particle.dt
+    #dep1 = particle.depth + w1*.5*particle.dt
+    #(u2, v2) = fieldset.UV[time + .5 * particle.dt, dep1, lat1, lon1]
+    #w2 = fieldset.WA[time + .5 * particle.dt, dep1, lat1, lon1]
+    #lon2 = particle.lon + u2*.5*particle.dt
+    #lat2 = particle.lat + v2*.5*particle.dt
+    #dep2 = particle.depth + w2*.5*particle.dt
+    #(u3, v3) = fieldset.UV[time + .5 * particle.dt, dep2, lat2, lon2]
+    #w3 = fieldset.WA[time + .5 * particle.dt, dep2, lat2, lon2]
+    #lon3 = particle.lon + u3*particle.dt
+    #lat3 = particle.lat + v3*particle.dt
+    #dep3 = particle.depth + w3*particle.dt
+    #(u4, v4) = fieldset.UV[time + particle.dt, dep3, lat3, lon3]
+    #w4 = fieldset.WA[time + particle.dt, dep3, lat3, lon3]
+    #particle.lon += (u1 + 2*u2 + 2*u3 + u4) / 6. * particle.dt
+    #particle.lat += (v1 + 2*v2 + 2*v3 + v4) / 6. * particle.dt
     #particle.depth += (w1 + 2*w2 + 2*w3 + w4) / 6. * particle.dt
     #particle.depth = temp_m/particle.bathy
 
@@ -337,12 +339,12 @@ else:
                                  lat=lat, 
                                  time = end_time, # what?
                                  repeatdt=repeatdt, 
-                                 depth=np.repeat(fieldset.WA.grid.depth[0], len(lat)))
+                                 depth=np.repeat(fieldset.WA.grid.depth[29], len(lat))) # last index is shallowest... I think/hope
 
 pfile = pset.ParticleFile(out_file, outputdt=delta(days=1))
 
 # SampleInitial kernel must come first to initialise particles in JIT mode
-kernels = SampleInitial + pset.Kernel(AdvectionRK4_3D_alternative) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + ResetDepth + SampleParticleDepth + larvalBuoyancy + SampleVelocities + Unbeaching
+kernels = SampleInitial + pset.Kernel(AdvectionRK4) + SampleAge + SampleDistance + DiffusionUniformKh + SampleTemp + SampleBathy + SampleVelocities + Unbeaching + SampleParticleDepth#+ ResetDepth + larvalBuoyancy
 
 if direction == "forwards": #or species == "spanner" and direction == "backwards": 
     pset.execute(kernels, runtime=delta(days = 0), dt=delta(minutes = 5)) # to get initial values for everything
