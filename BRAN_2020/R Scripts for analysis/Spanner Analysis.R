@@ -75,9 +75,9 @@ CPUE <- read_csv("Other Data/Spanner Crab Annual CPUE.csv")
 CPUE <- CPUE %>% rename(Year = `Event date Year`)
 
 CPUE2 <- read_csv("Other Data/Spanner_for_HS__data_request_01072021.csv")
+FIS_dat <- read_csv("Other Data/NSW FIS data digitised.csv")
 
-
-full_dat <- full_join(CPUE2, nsw_sum) %>% arrange(Year)
+full_dat <- full_join(CPUE2, nsw_sum) %>% arrange(Year) %>% left_join(FIS_dat)
 extra_year <- data.frame(Year=2020)
 extra_year2 <- data.frame(Year=2021)
 full_dat <- bind_rows(full_dat,extra_year,extra_year2) # so that we can see the 2021 prediction
@@ -87,22 +87,75 @@ head(full_dat)
 
 ggplot(full_dat, aes(Year, lagged_Predicted_recruitment)) + geom_point() + geom_line(col="grey40")+
   theme_classic()+ geom_line(data=full_dat, aes(y = `CPUE (kg.FisherDay-1)`*20), col="red")+
+  geom_line(data=full_dat, aes(y = `FIS_CPUE_sublegal`*200), col="green")
   #geom_errorbar(data=full_dat,aes(y = CPUE_mean*2000, ymin=CPUE_mean*2000-se_CPUE*2000, ymax=CPUE_mean*2000+se_CPUE*2000))
 
 str(full_dat)
 cor.test(full_dat$lagged_Predicted_recruitment, full_dat$`CPUE (kg.FisherDay-1)`)
+cor.test(full_dat$lagged_Predicted_recruitment, full_dat$`FIS_CPUE_sublegal`)
+cor.test(full_dat$lagged_Predicted_recruitment, full_dat$`FIS_CPUE_legal`)
+cor.test(full_dat$lagged_Predicted_recruitment, full_dat$`FIS_CPUE_all`)
+
+library(ggrepel)
+c1 <- ggplot(full_dat, aes(x=lagged_Predicted_recruitment, y = `CPUE (kg.FisherDay-1)`)) + 
+  geom_point()+ theme_classic()+
+  xlab("Predicted Recruitment Index")+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+c1
+
+c2 <- ggplot(full_dat, aes(x=lagged_Predicted_recruitment, y = `CPUE (kg.NL-1)`)) + 
+  geom_point()+ theme_classic()+ xlim(c(min(full_dat$lagged_Predicted_recruitment),4000))+
+  xlab("Predicted Recruitment Index")+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+c2
+
+c3 <- ggplot(full_dat, aes(x=lagged_Predicted_recruitment, y = `FIS_CPUE_all`)) + 
+  geom_point()+ theme_classic()+ylab("Independent Survey\nAll Size Crabs")+
+  xlab("Predicted Recruitment Index")+ xlim(c(min(full_dat$lagged_Predicted_recruitment),4000))+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+c3
+
+c4 <- ggplot(full_dat, aes(x=lagged_Predicted_recruitment, y = `FIS_CPUE_legal`)) + 
+  geom_point()+ theme_classic()+ ylab("Independent Survey\nLegal Size Crabs")+
+  xlab("Predicted Recruitment Index")+ xlim(c(min(full_dat$lagged_Predicted_recruitment),4000))+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+c4
+
+library(patchwork)
+c1+c2+c3+c4 + plot_layout(nrow=2)+plot_annotation(tag_levels = 'a')
+
+#ggsave("XY plots recruitment predictions.pdf", height=21, width = 14.8*2, units="cm", dpi=600)
+
 #plot(full_dat$lagged_Predicted_recruitment, full_dat$CPUE_mean)
 write_csv(full_dat, "Predicted recruitment full season mortalityx1.csv")
 
 ### Attempt to standardise things
 full_dat_standardised <- full_dat %>% mutate(standardised_lagged_Predicted_recruitment = scales::rescale(lagged_Predicted_recruitment),
                                              CPUE_relative1 = scales::rescale(`CPUE (kg.FisherDay-1)`),
-                                             CPUE_relative2 = scales::rescale(`CPUE (kg.NL-1)`))
+                                             CPUE_relative2 = scales::rescale(`CPUE (kg.NL-1)`),
+                                             CPUE_relative3 = scales::rescale(`FIS_CPUE_legal`))
 
 cor.test(full_dat_standardised$CPUE_relative1, full_dat_standardised$CPUE_relative2)
+cor.test(full_dat_standardised$CPUE_relative1, full_dat_standardised$CPUE_relative3)
+cor.test(full_dat_standardised$CPUE_relative2, full_dat_standardised$CPUE_relative3)
 
-full_dat_standardised_long <- full_dat_standardised %>% select(Year, standardised_lagged_Predicted_recruitment, CPUE_relative1, CPUE_relative2) %>%
-  pivot_longer(2:4)
+
+
+
+full_dat_standardised_long <- full_dat_standardised %>% select(Year, standardised_lagged_Predicted_recruitment, CPUE_relative1, CPUE_relative2,CPUE_relative3) %>%
+  pivot_longer(2:5)
 
 # full_dat_standardised_long$SE <- as.numeric(0)
 # for (i in 1:nrow(full_dat_standardised_long)){
@@ -126,7 +179,7 @@ ggplot(full_dat_standardised_long, aes(Year, value, col=name)) + geom_point() + 
         legend.position = "bottom",
         legend.title = element_text(face="bold",size=14),
         legend.text = element_text(size=12)) +
-  scale_color_manual(values=c("red","blue", "black", "green"), name="Data\nSource", labels = c("CPUE\nFisher kg/day","CPUE\nkg/net", "Predicted Recruitment\nto Fishery", "prop"))
+  scale_color_manual(values=c("red","blue", "green", "black"), name="Data\nSource", labels = c("CPUE\nFisher kg/day","CPUE\nkg/net","FIS Legal\nSize", "Predicted Recruitment\nto Fishery"))
 
 #ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE.png", dpi=600, units="cm", height = 14.8, width=21)
 #ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE.pdf", dpi=600, units="cm", height = 14.8, width=21)
@@ -165,6 +218,19 @@ ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v Harvest Proportions.png"
 ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v Harvest Proportions.pdf", dpi=600, units="cm", height = 14.8, width=21)
 
 
+d1 <- ggplot(full_dat_standardised, aes(x=lagged_Predicted_recruitment, y = NSW_Proportion)) + 
+  geom_point()+ theme_classic()+
+  xlab("Predicted Recruitment Index")+
+  ylab("Proportion of Harvest in NSW")+
+  ylim(c(0.04,0.17))+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+d1
+
+ggsave("XY Plot NSW propotions.pdf", width=21, height = 14.8, units = "cm", dpi=600)
+ggsave("XY Plot NSW propotions.png", width=21, height = 14.8, units = "cm", dpi=600)
 
 # What months is settlement mostly happening in NSW
 mydata_set <- mydata %>% filter(Month >= 10 | Month <2) %>% filter(state == "NSW") %>% group_by(spawning_year, Month) %>%
@@ -187,8 +253,8 @@ ggplot(mydata_set, aes(x=spawning_year, y =total)) + geom_line() + geom_point() 
         strip.text = element_text(face="bold", size=12,hjust=0),
         panel.border = element_rect(colour="black",fill=NA))
 
-ggsave("C:/Users/htsch/Desktop/Snapper Crab/Annual Settlement by Month.png", dpi=600, units="cm", height = 14.8, width=21)
-ggsave("C:/Users/htsch/Desktop/Snapper Crab/Annual Settlement by Month.pdf", dpi=600, units="cm", height = 14.8, width=21)
+#ggsave("C:/Users/htsch/Desktop/Snapper Crab/Annual Settlement by Month.png", dpi=600, units="cm", height = 14.8, width=21)
+#ggsave("C:/Users/htsch/Desktop/Snapper Crab/Annual Settlement by Month.pdf", dpi=600, units="cm", height = 14.8, width=21)
 
 
 ##################################
@@ -260,7 +326,7 @@ mydata_set2 <- mydata_set2 %>% rename(Year = spawning_year, Predicted_recruitmen
 write_csv(mydata_set2, "test_out2.csv")
 mydata_set2 <- read_csv("test_out2.csv")
 
-full_datX <- full_join(CPUE2, mydata_set2) %>% arrange(Year)
+full_datX <- full_join(CPUE2, mydata_set2) %>% arrange(Year) %>% left_join(FIS_dat)
 extra_year <- data.frame(Year=2021)
 full_datX <- bind_rows(full_datX,extra_year) %>% mutate(Month =11)
 
@@ -269,12 +335,16 @@ head(full_datX_Nov)
 
 ggplot(full_datX_Nov, aes(Year, lagged_Predicted_recruitment)) + geom_point() + geom_line(col="grey40")+
   theme_classic()+ geom_line(data=full_datX_Nov, aes(y = `CPUE (kg.FisherDay-1)`), col="red")+
-  geom_line(data=full_datX_Nov, aes(y = `CPUE (kg.NL-1)`*500), col="blue")
+  geom_line(data=full_datX_Nov, aes(y = `CPUE (kg.NL-1)`*500), col="blue")+
+  geom_line(data=full_datX_Nov, aes(y = `FIS_CPUE_legal`*50), col="green")
   
  # geom_errorbar(data=full_datX_Nov,aes(y = CPUE_mean*2000, ymin=CPUE_mean*2000-se_CPUE*2000, ymax=CPUE_mean*2000+se_CPUE*2000))
 
 cor.test(full_datX_Nov$lagged_Predicted_recruitment, full_datX_Nov$`CPUE (kg.FisherDay-1)`)
 cor.test(full_datX_Nov$lagged_Predicted_recruitment, full_datX_Nov$`CPUE (kg.NL-1)`)
+cor.test(full_datX_Nov$lagged_Predicted_recruitment, full_datX_Nov$`FIS_CPUE_all`)
+cor.test(full_datX_Nov$lagged_Predicted_recruitment, full_datX_Nov$`FIS_CPUE_sublegal`)
+cor.test(full_datX_Nov$lagged_Predicted_recruitment, full_datX_Nov$`FIS_CPUE_legal`)
 
 
 
@@ -320,7 +390,7 @@ write_csv(mydata_set2, "test_out2.csv")
 mydata_set2 <- read_csv("test_out2.csv")
 
 full_datX <- full_join(CPUE, mydata_set2) %>% arrange(Year)
-full_datX <- full_join(CPUE2, mydata_set2) %>% arrange(Year)
+full_datX <- full_join(CPUE2, mydata_set2) %>% arrange(Year) %>% left_join(FIS_dat)
 extra_year <- data.frame(Year=2020)
 extra_year2 <- data.frame(Year=2021)
 full_datX <- bind_rows(full_datX,extra_year,extra_year2) %>% mutate(Month =12)
@@ -334,17 +404,61 @@ ggplot(full_datX_Dec, aes(Year, lagged_Predicted_recruitment)) + geom_point() + 
 
 cor.test(full_datX_Dec$lagged_Predicted_recruitment, full_datX_Dec$`CPUE (kg.FisherDay-1)`)
 cor.test(full_datX_Dec$lagged_Predicted_recruitment, full_datX_Dec$`CPUE (kg.NL-1)`)
-cor.test(full_datX_Dec$`CPUE (kg.FisherDay-1)`, full_datX_Dec$`CPUE (kg.NL-1)`)
+#cor.test(full_datX_Dec$`CPUE (kg.FisherDay-1)`, full_datX_Dec$`CPUE (kg.NL-1)`)
+cor.test(full_datX_Dec$`CPUE (kg.FisherDay-1)`, full_datX_Dec$`FIS_CPUE_all`)
+cor.test(full_datX_Dec$`CPUE (kg.FisherDay-1)`, full_datX_Dec$`FIS_CPUE_sublegal`)
+cor.test(full_datX_Dec$`CPUE (kg.FisherDay-1)`, full_datX_Dec$`FIS_CPUE_legal`)
 
+
+e1 <- ggplot(full_datX_Dec, aes(x=lagged_Predicted_recruitment, y = `CPUE (kg.FisherDay-1)`)) + 
+  geom_point()+ theme_classic()+
+  xlab("Predicted Recruitment Index")+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+e1
+
+e2 <- ggplot(full_datX_Dec, aes(x=lagged_Predicted_recruitment, y = `CPUE (kg.NL-1)`)) + 
+  geom_point()+ theme_classic()+ xlim(c(min(full_datX_Dec$lagged_Predicted_recruitment),2000))+
+  xlab("Predicted Recruitment Index")+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+e2
+
+e3 <- ggplot(full_datX_Dec, aes(x=lagged_Predicted_recruitment, y = `FIS_CPUE_all`)) + 
+  geom_point()+ theme_classic()+ylab("Independent Survey\nAll Size Crabs")+
+  xlab("Predicted Recruitment Index")+ xlim(c(min(full_datX_Dec$lagged_Predicted_recruitment),2000))+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+e3
+
+e4 <- ggplot(full_datX_Dec, aes(x=lagged_Predicted_recruitment, y = `FIS_CPUE_legal`)) + 
+  geom_point()+ theme_classic()+ ylab("Independent Survey\nLegal Size Crabs")+
+  xlab("Predicted Recruitment Index")+ xlim(c(min(full_datX_Dec$lagged_Predicted_recruitment),2000))+
+  geom_text_repel(aes(label = Year)) + geom_smooth(method="lm") +
+  theme(axis.title = element_text(face="bold", size=14),
+        axis.text = element_text(size=12, colour="black"),
+        axis.ticks = element_line(colour="black"))
+e4
+
+library(patchwork)
+e1+e2+e3+e4 + plot_layout(nrow=2)+plot_annotation(tag_levels = 'a')
+#ggsave("XY plots recruitment predictions december.pdf", height=21, width = 14.8*2, units="cm", dpi=600)
 
 ### Standardise using only month 12
 full_dat_standardisedX_Dec <- full_datX_Dec %>% filter(Year >= 1998) %>%
   mutate(standardised_lagged_Predicted_recruitment = scales::rescale(lagged_Predicted_recruitment,to=c(0,1)),
                                                        CPUE_relative1 = scales::rescale(`CPUE (kg.FisherDay-1)`,to=c(0,1)),#`CPUE (kg.FisherDay-1)`/max(`CPUE (kg.FisherDay-1)`, na.rm=T),
-                                                       CPUE_relative2 = scales::rescale(`CPUE (kg.NL-1)`,to=c(0,1)))
+                                                       CPUE_relative2 = scales::rescale(`CPUE (kg.NL-1)`,to=c(0,1)),
+         CPUE_relative3 = scales::rescale(`FIS_CPUE_legal`))
 
-full_dat_standardised_longX_Dec <- full_dat_standardisedX_Dec %>% select(Year, Month,standardised_lagged_Predicted_recruitment, CPUE_relative1, CPUE_relative2) %>%
-  pivot_longer(3:5) %>% mutate(Month = 12)
+full_dat_standardised_longX_Dec <- full_dat_standardisedX_Dec %>% select(Year, Month,standardised_lagged_Predicted_recruitment, CPUE_relative1, CPUE_relative2, CPUE_relative3) %>%
+  pivot_longer(3:6) %>% mutate(Month = 12)
 
 # full_dat_standardised_longX_Dec$SE <- as.numeric(0)
 # for (i in 1:nrow(full_dat_standardised_longX_Dec)){
@@ -368,8 +482,7 @@ ggplot(full_dat_standardised_longX_Dec, aes(Year, value, col=name)) + geom_point
         legend.title = element_text(face="bold",size=14),
         legend.text = element_text(size=12),
         axis.text.x = element_text(colour="black", size=12, angle=45, vjust=0.5)) +
-  scale_color_manual(values=c("red","blue","black"), name="Data\nSource", labels = c("CPUE\nkg/FisherDay","CPUE\nkg/Net Lift", "Predicted Recruitment\nto Fishery"))
-
+  scale_color_manual(values=c("red","blue", "green", "black"), name="Data\nSource", labels = c("CPUE\nFisher kg/day","CPUE\nkg/net","FIS Legal\nSize", "Predicted Recruitment\nto Fishery"))
 ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE December spawning only.png", dpi=600, units="cm", height = 14.8, width=21)
 ggsave("C:/Users/htsch/Desktop/Snapper Crab/Predicted v CPUE December spawning only.pdf", dpi=600, units="cm", height = 14.8, width=21)
 cor.test(full_dat_standardisedX_Dec$standardised_lagged_Predicted_recruitment, full_dat_standardisedX_Dec$CPUE_relative1)

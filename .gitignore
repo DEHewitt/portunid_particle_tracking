@@ -6,3 +6,5 @@ BRAN_2020/AUS/Ocean*
 BRAN_2020/AUS/grid*
 *DD.rds
 BRAN_2020/Output/*
+BRAN_2020/test*
+BRAN_2020/test_*
